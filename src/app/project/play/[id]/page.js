@@ -16,6 +16,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
 import { Dialog, DialogContent, DialogTrigger } from "@/components/ui/dialog";
 import { Combobox } from "@/StoryComponents/ComboBox";
+import { useEffect } from "react";
 
 const QuestionHelpBox = ({ children }) => {
   return (
@@ -40,11 +41,12 @@ const SwitchWithHelper = ({ helperChildren, title, value, callback }) => {
   );
 };
 
-const StoryPage = observer(() => {
+const StoryPage = observer(({ projectId }) => {
   const {
     activePage,
     inventory,
     stats,
+    items,
     handleOptionClick,
     isOptionUnlocked,
     findItem,
@@ -52,9 +54,17 @@ const StoryPage = observer(() => {
     hasItem,
     meetsStatCondition,
   } = MobxStore;
+  console.log({ stats, items });
   const { name, description, options, page, img } = activePage;
 
   const [isEditMode, setIsEditMode] = useState(false);
+
+  useEffect(() => {
+    if (projectId) {
+      MobxStore.fetchStats(projectId);
+      MobxStore.fetchItems(projectId);
+    }
+  }, []);
 
   const Stats = ({ stats }) => (
     <div className="flex gap-4 border-t p-4">
@@ -100,7 +110,6 @@ const StoryPage = observer(() => {
     const [isOptionHidden, setIsOptionHidden] = useState(false);
     const [requirementOption, setRequirementOption] = useState("");
 
-    console.log({ requirementOption });
     return (
       <div
         className="flex flex-col border relative"

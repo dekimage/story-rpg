@@ -7,6 +7,7 @@ const nextConfig = {
       "assets.openai.com",
       "cdn.midjourney.com",
       "images.unsplash.com",
+      "firebasestorage.googleapis.com",
     ],
   },
 };

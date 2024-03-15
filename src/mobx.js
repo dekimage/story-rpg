@@ -34,6 +34,7 @@ import {
   ref as storageRef,
   uploadBytes,
   getDownloadURL,
+  deleteObject,
 } from "firebase/storage";
 
 import { rooms, items, stats } from "./data";
@@ -44,6 +45,7 @@ const DEFAULT_USER = {
 
 class Store {
   user = null;
+
   pages = rooms;
   items = items;
   stats = stats;
@@ -85,6 +87,14 @@ class Store {
     this.createProject = this.createProject.bind(this);
     this.updateProject = this.updateProject.bind(this);
     this.deleteProject = this.deleteProject.bind(this);
+    this.createItemWithImage = this.createItemWithImage.bind(this);
+    this.updateItemWithImage = this.updateItemWithImage.bind(this);
+    this.deleteItem = this.deleteItem.bind(this);
+    this.createStatWithImage = this.createStatWithImage.bind(this);
+    this.updateStatWithImage = this.updateStatWithImage.bind(this);
+    this.deleteStat = this.deleteStat.bind(this);
+    this.fetchItems = this.fetchItems.bind(this);
+    this.fetchStats = this.fetchStats.bind(this);
   }
 
   initializeAuth() {
@@ -105,6 +115,304 @@ class Store {
         });
       }
     });
+  }
+
+  // Pages
+  async fetchPages(projectId) {
+    this.loading = true;
+    try {
+      const q = query(
+        collection(db, "pages"),
+        where("projectId", "==", projectId)
+      );
+      const querySnapshot = await getDocs(q);
+      const pages = [];
+      querySnapshot.forEach((doc) => {
+        pages.push({ id: doc.id, ...doc.data() });
+      });
+      runInAction(() => {
+        this.pages = pages;
+        this.loading = false;
+      });
+    } catch (error) {
+      console.error("Error fetching pages:", error);
+      this.loading = false;
+    }
+  }
+
+  // Stats
+  async fetchStats(projectId) {
+    this.loading = true;
+    try {
+      const q = query(
+        collection(db, "stats"),
+        where("projectId", "==", projectId)
+      );
+      const querySnapshot = await getDocs(q);
+      const stats = [];
+      querySnapshot.forEach((doc) => {
+        stats.push({ id: doc.id, ...doc.data() });
+      });
+      runInAction(() => {
+        this.stats = stats;
+        this.loading = false;
+      });
+    } catch (error) {
+      console.error("Error fetching stats:", error);
+      this.loading = false;
+    }
+  }
+
+  async createPage(projectId, pageData, imageFile) {
+    this.loading = true;
+
+    try {
+      if (!imageFile) {
+        throw new Error("No image file provided.");
+      }
+
+      const storage = getStorage();
+
+      const imageFileName = encodeURIComponent(imageFile.name);
+
+      const storagePath = `projects/${projectId}/pages/${imageFileName}`;
+
+      const imageRef = storageRef(storage, storagePath);
+
+      const uploadResult = await uploadBytes(imageRef, imageFile);
+      const imageUrl = await getDownloadURL(uploadResult.ref);
+
+      const newPageData = { ...pageData, imageUrl };
+      const newPageRef = await addDoc(collection(db, "pages"), {
+        ...newPageData,
+        projectId: projectId,
+      });
+
+      runInAction(() => {
+        this.pages.push({ id: newPageRef.id, ...newPageData });
+        this.loading = false;
+      });
+    } catch (error) {
+      console.error("Error creating stat with image:", error);
+      this.loading = false;
+    }
+  }
+
+  async createStatWithImage(projectId, statData, imageFile) {
+    this.loading = true;
+
+    try {
+      if (!imageFile) {
+        throw new Error("No image file provided.");
+      }
+
+      // Assuming the user's ID is correctly set in your store as this.user.uid
+      const storage = getStorage();
+
+      const imageFileName = encodeURIComponent(imageFile.name); // Handle special characters in filename
+
+      const storagePath = `projects/${projectId}/stats/${imageFileName}`;
+
+      const imageRef = storageRef(storage, storagePath);
+
+      const uploadResult = await uploadBytes(imageRef, imageFile);
+      const imageUrl = await getDownloadURL(uploadResult.ref);
+
+      const newStatData = { ...statData, imageUrl };
+      const newStatRef = await addDoc(collection(db, "stats"), {
+        ...newStatData,
+        projectId: projectId,
+      });
+
+      runInAction(() => {
+        this.stats.push({ id: newStatRef.id, ...newStatData });
+        this.loading = false;
+      });
+    } catch (error) {
+      console.error("Error creating stat with image:", error);
+      this.loading = false;
+    }
+  }
+
+  async updateStatWithImage(existingStat, projectId, updateData, newImageFile) {
+    const statId = existingStat.id;
+    const existingUrl = existingStat.imageUrl;
+
+    console.log({ existingStat });
+    this.loading = true;
+    try {
+      if (newImageFile) {
+        const storage = getStorage();
+        if (existingUrl) {
+          const imageRef = storageRef(storage, existingUrl);
+          await deleteObject(imageRef);
+        }
+
+        const imageFileName = encodeURIComponent(newImageFile.name);
+        const storagePath = `projects/${projectId}/stats/${imageFileName}`;
+        const imageRef = storageRef(storage, storagePath);
+        await uploadBytes(imageRef, newImageFile);
+        const imageUrl = await getDownloadURL(imageRef);
+        updateData.imageUrl = imageUrl;
+      }
+
+      const statRef = doc(db, "stats", statId);
+      await updateDoc(statRef, updateData);
+
+      runInAction(() => {
+        const index = this.stats.findIndex((stat) => stat.id === statId);
+        if (index !== -1) {
+          this.stats[index] = { ...this.stats[index], ...updateData };
+        }
+        this.loading = false;
+      });
+    } catch (error) {
+      console.error("Error updating stat with image:", error);
+      this.loading = false;
+    }
+  }
+
+  async deleteStat(statId, imagePath) {
+    this.loading = true;
+    try {
+      await deleteDoc(doc(db, "stats", statId));
+
+      const storage = getStorage();
+
+      const imageRef = storageRef(storage, imagePath);
+
+      await deleteObject(imageRef);
+
+      runInAction(() => {
+        this.stats = this.stats.filter((stat) => stat.id !== statId);
+        console.log(123123);
+        this.loading = false;
+      });
+    } catch (error) {
+      console.error("Error deleting stat and image:", error);
+      this.loading = false;
+    }
+  }
+
+  //Items
+
+  async fetchItems(projectId) {
+    this.loading = true;
+    try {
+      const q = query(
+        collection(db, "items"),
+        where("projectId", "==", projectId)
+      );
+      const querySnapshot = await getDocs(q);
+      const items = [];
+      querySnapshot.forEach((doc) => {
+        items.push({ id: doc.id, ...doc.data() });
+      });
+      runInAction(() => {
+        this.items = items;
+        this.loading = false;
+      });
+    } catch (error) {
+      console.error("Error fetching items:", error);
+      this.loading = false;
+    }
+  }
+
+  async createItemWithImage(projectId, itemData, imageFile) {
+    this.loading = true;
+
+    try {
+      if (!imageFile) {
+        throw new Error("No image file provided.");
+      }
+
+      // Assuming the user's ID is correctly set in your store as this.user.uid
+      const storage = getStorage();
+
+      const imageFileName = encodeURIComponent(imageFile.name); // Handle special characters in filename
+
+      const storagePath = `projects/${projectId}/items/${imageFileName}`;
+
+      const imageRef = storageRef(storage, storagePath);
+
+      const uploadResult = await uploadBytes(imageRef, imageFile);
+      const imageUrl = await getDownloadURL(uploadResult.ref);
+
+      // Add the imageUrl to itemData and create the item document in Firestore
+      const newItemData = { ...itemData, imageUrl };
+      const newItemRef = await addDoc(collection(db, "items"), {
+        ...newItemData,
+        projectId: projectId,
+      });
+
+      runInAction(() => {
+        this.items.push({ id: newItemRef.id, ...newItemData });
+        this.loading = false;
+      });
+    } catch (error) {
+      console.error("Error creating item with image:", error);
+      this.loading = false;
+    }
+  }
+
+  async updateItemWithImage(existingItem, projectId, updateData, newImageFile) {
+    const itemId = existingItem.id;
+    const existingUrl = existingItem.imageUrl;
+
+    console.log({ existingItem });
+    this.loading = true;
+    try {
+      if (newImageFile) {
+        const storage = getStorage();
+        if (existingUrl) {
+          const imageRef = storageRef(storage, existingUrl);
+          await deleteObject(imageRef);
+        }
+
+        const imageFileName = encodeURIComponent(newImageFile.name);
+        const storagePath = `projects/${projectId}/items/${imageFileName}`;
+        const imageRef = storageRef(storage, storagePath);
+        await uploadBytes(imageRef, newImageFile);
+        const imageUrl = await getDownloadURL(imageRef);
+        updateData.imageUrl = imageUrl;
+      }
+
+      const itemRef = doc(db, "items", itemId);
+      await updateDoc(itemRef, updateData);
+
+      runInAction(() => {
+        const index = this.items.findIndex((item) => item.id === itemId);
+        if (index !== -1) {
+          this.items[index] = { ...this.items[index], ...updateData };
+        }
+        this.loading = false;
+      });
+    } catch (error) {
+      console.error("Error updating item with image:", error);
+      this.loading = false;
+    }
+  }
+
+  async deleteItem(itemId, imagePath) {
+    this.loading = true;
+    try {
+      await deleteDoc(doc(db, "items", itemId));
+
+      const storage = getStorage();
+
+      const imageRef = storageRef(storage, imagePath);
+
+      await deleteObject(imageRef);
+
+      runInAction(() => {
+        this.items = this.items.filter((item) => item.id !== itemId);
+        console.log(123123);
+        this.loading = false;
+      });
+    } catch (error) {
+      console.error("Error deleting item and image:", error);
+      this.loading = false;
+    }
   }
 
   async createProject(projectData) {
@@ -245,8 +553,8 @@ class Store {
     return this.items.find((item) => item.id === itemId);
   };
 
-  setActivePage = (page) => {
-    const newPage = this.pages.find((p) => p.page === page);
+  setActivePage = (pageNum) => {
+    const newPage = this.pages.find((p) => p.page === pageNum);
     if (newPage) {
       runInAction(() => {
         this.activePage = newPage;
