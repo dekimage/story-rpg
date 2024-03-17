@@ -72,22 +72,37 @@ const Option = ({
   isEditMode,
   updateProperty,
 }) => {
-  const { handleOptionClick, findItem, findStat, hasItem, meetsStatCondition } =
-    MobxStore;
+  const {
+    handleOptionClick,
+    findItem,
+    findStat,
+    hasItem,
+    meetsStatCondition,
+    stats,
+    items,
+  } = MobxStore;
   const [showLock, setShowLock] = useState(false);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
 
-  const [isGiveStats, setIsGiveStats] = useState(false);
-  const [selectedStat, setSelectedStat] = useState("");
-  const [selectedOperation, setSelectedOperation] = useState("");
-  const [statValue, setStatValue] = useState("1");
+  const [isGiveStats, setIsGiveStats] = useState(option.gain_stat);
 
   const [isGiveItem, setIsGiveItem] = useState(false);
   const [selectedItem, setSelectedItem] = useState("");
 
-  const [isPageLinkDisabled, setIsPageLinkDisabled] = useState(false);
   const [isOptionHidden, setIsOptionHidden] = useState(false);
   const [requirementOption, setRequirementOption] = useState("");
+
+  const isGainStat = option.isGiveStats || isGiveStats;
+
+  const statsForCombobox = stats.map((stat) => ({
+    label: stat.name,
+    value: stat.id,
+  }));
+
+  const itemsForCombobox = items.map((item) => ({
+    label: item.name,
+    value: item.id,
+  }));
 
   return (
     <div
@@ -120,17 +135,19 @@ const Option = ({
           <div className="flex w-full pl-2 text-md">{option.label}</div>
         )}
 
-        <div className="flex gap-1 bg-yellow-200 h-full w-24 justify-center items-center px-2 text-black font-bold">
+        <div className="flex gap-1 bg-yellow-200 h-full w-24 justify-center items-center px-2 font-bold">
           <Image
             src={unlocked ? bookIcon : lockIcon}
             alt="icon"
             height={20}
             width={20}
           />
-          {unlocked && !isEditMode && option.page}
+          <div className="text-black">
+            {unlocked && !isEditMode && option.page}
+          </div>
           {unlocked && isEditMode && (
             <Input
-              className="flex w-full pl-2 text-md"
+              className="flex w-full pl-2 text-md w-[44px]"
               value={option.page}
               onChange={(e) => updateProperty("page", e.target.value)}
             />
@@ -207,6 +224,7 @@ const Option = ({
           </div>
         )}
       </div>
+
       {isEditMode && (
         <div
           className="text-blue-500 hover:text-blue-200 transition cursor-pointer text-sm p-2"
@@ -215,59 +233,80 @@ const Option = ({
           {isSettingsOpen ? "Hide Settings" : "+ Add Settings"}
         </div>
       )}
-      {isSettingsOpen && (
+
+      {isSettingsOpen && isEditMode && (
         <div className="flex flex-col gap-2 p-2">
           <SwitchWithHelper
             title="Adjust Player Stats"
-            value={option.isGiveStats}
-            callback={() => updateProperty("page", option.isGiveStats)}
+            value={isGiveStats}
+            callback={() => {
+              // updateProperty("gain_stat", {});
+              setIsGiveStats(!isGiveStats);
+            }}
             helperChildren={"Auto play is..."}
           />
-          {isGiveStats && (
+          {isGainStat && (
             <div className="gap-2 p-2 flex">
               <Combobox
-                value={selectedStat}
-                setValue={setSelectedStat}
+                value={option?.gain_stat?.statId}
+                setValue={(value) => updateProperty("gain_stat.statId", value)}
                 searchLabel={"Search Stats"}
-                options={[{ label: "Health" }, { label: "Strength" }]}
+                options={statsForCombobox}
               />
               <Combobox
-                value={selectedOperation}
-                setValue={setSelectedOperation}
-                options={[{ label: "+" }, { label: "-" }]}
+                value={option?.gain_stat?.operation}
+                setValue={(value) =>
+                  updateProperty("gain_stat.operation", value)
+                }
+                options={[
+                  { label: "+", value: "+" },
+                  { label: "-", value: "-" },
+                ]}
                 select
               />
-              <Input className="w-16" value={statValue} />
+              <Input
+                className="w-16"
+                value={option?.gain_stat?.value || 1}
+                onChange={(e) =>
+                  updateProperty("gain_stat.value", e.target.value)
+                }
+              />
             </div>
           )}
 
           <SwitchWithHelper
             title="Give Item"
             value={isGiveItem}
-            callback={() => setIsGiveItem(!isGiveItem)}
+            callback={() => {
+              // updateProperty("gain_item", null);
+              setIsGiveItem(!isGiveItem);
+            }}
             helperChildren={"Auto play is..."}
           />
+
           {isGiveItem && (
             <div className="gap-2 p-2 flex items-center">
               <div>Obtain Item: </div>
               <Combobox
-                value={selectedItem}
-                setValue={setSelectedItem}
+                value={option?.gain_item}
+                setValue={(value) => updateProperty("gain_item", value)}
                 searchLabel={"Search Items"}
-                options={[{ label: "Obelisk" }, { label: "Sword" }]}
+                options={itemsForCombobox}
               />
             </div>
           )}
 
-          <SwitchWithHelper
+          {/* <SwitchWithHelper
             title="Disable Page Link"
-            value={isPageLinkDisabled}
-            callback={() => setIsPageLinkDisabled(!isPageLinkDisabled)}
+            value={option.isPageLinkDisabled}
+            callback={() =>
+              updateProperty("isPageLinkDisabled", !option.isPageLinkDisabled)
+            }
             helperChildren={"Auto play is..."}
-          />
+          /> */}
 
           <SwitchWithHelper
-            title="Inaccessible Option"
+            title="Locked / Hidden"
             value={isOptionHidden}
             callback={() => setIsOptionHidden(!isOptionHidden)}
             helperChildren={"Auto play is..."}
@@ -400,9 +439,10 @@ const Options = ({ options, setOptions, isEditMode, addOption }) => {
 };
 
 const StoryPage = observer(({ onBack }) => {
+  const isEditPage = usePathname().includes("edit");
   const { activePage, inventory, stats, items } = MobxStore;
 
-  const [isEditMode, setIsEditMode] = useState(false);
+  const [isEditMode, setIsEditMode] = useState(isEditPage);
 
   const params = useParams();
   const projectId = params.id;
@@ -413,8 +453,6 @@ const StoryPage = observer(({ onBack }) => {
   const [imagePreviewUrl, setImagePreviewUrl] = useState(
     page ? page.img : null
   );
-
-  const isEditPage = usePathname().includes("edit");
 
   const [editPage, setEditPage] = useState(page);
   const [editName, setEditName] = useState(name);
@@ -432,7 +470,6 @@ const StoryPage = observer(({ onBack }) => {
   };
 
   const addOption = () => {
-    console.log(editOptions);
     setEditOptions([...editOptions, { label: "", page: 0 }]);
   };
 
