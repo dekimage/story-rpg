@@ -1,7 +1,7 @@
 "use client";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-
+import imgPlaceholder from "@/assets/placeholder.png";
 import { TitleDescription } from "../StoryComponents/TitleDescription";
 import { Badge } from "@/components/ui/badge";
 import Link from "next/link";
@@ -18,6 +18,7 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
+import Image from "next/image";
 
 const dummyImages = [
   "https://cdn.midjourney.com/a70065b2-9c69-4189-a6fe-ae6ae6f449eb/0_0.png",
@@ -147,14 +148,13 @@ const StoryRpgPage = observer(() => {
                 <Badge className="w-fit bg-yellow-400">In Progress</Badge>
               )}
             </div>
-            <img
-              src={
-                project.imageUrl ||
-                dummyImages[Math.floor(Math.random() * dummyImages.length)]
-              }
+            <Image
+              src={project.imageUrl || imgPlaceholder}
               alt="project"
+              width={200}
+              height={200}
             />
-            <div className="flex justify-center  flex-col p-2">
+            <div className="flex justify-center flex-col items-between p-2">
               <div>{project.name}</div>
               <div className="text-xs text-gray-400">{project.description}</div>
               <div className="flex gap-2 pt-6">
@@ -164,11 +164,7 @@ const StoryRpgPage = observer(() => {
                   </Button>
                 </Link>
                 <Link href={`/project/edit/${project.id}`}>
-                  <Button
-                    className="p-2 px-4 h-8"
-                    variant="outline"
-                    // onClick={() => handleEditClick(project)}
-                  >
+                  <Button className="p-2 px-4 h-8" variant="outline">
                     Edit
                   </Button>
                 </Link>
@@ -180,7 +176,7 @@ const StoryRpgPage = observer(() => {
           showDialog={showDialog}
           setShowDialog={setShowDialog}
           trigger={
-            <div className="cursor-pointer hover:bg-gray-100 rounded-lg border bg-card text-card-foreground shadow-sm p-4 w-[200px] h-[312px] flex flex-col justify-center items-center relative text-gray-400">
+            <div className="cursor-pointer hover:bg-gray-100 rounded-lg border bg-card text-card-foreground shadow-sm p-4 w-[200px] h-auto flex flex-col justify-center items-center relative text-gray-400">
               <div className="flex items-center gap-1">
                 <span className="text-2xl">+</span>Add
               </div>

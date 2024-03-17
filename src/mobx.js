@@ -37,7 +37,7 @@ import {
   deleteObject,
 } from "firebase/storage";
 
-import { rooms, items, stats } from "./data";
+import { rooms } from "./data";
 
 const DEFAULT_USER = {
   isCreator: true,
@@ -45,23 +45,26 @@ const DEFAULT_USER = {
 
 class Store {
   user = null;
-
-  pages = rooms;
-  items = items;
-  stats = stats;
-
   loading = false;
+  isMobileOpen = false;
 
+  // Projects Creator
   projects = [];
+  pages = [];
+  items = [];
+  stats = [];
 
+  activePage = {
+    name: "",
+    description: "",
+    options: [],
+    page: 0,
+    img: "",
+  };
+
+  // Game State
   inventory = [];
   usedOptions = [];
-
-  activePage = this.pages[0];
-
-  //reusable from pathways
-  isMobileOpen = false;
-  // setIsMobileOpen
 
   constructor() {
     makeAutoObservable(this);
@@ -95,6 +98,11 @@ class Store {
     this.deleteStat = this.deleteStat.bind(this);
     this.fetchItems = this.fetchItems.bind(this);
     this.fetchStats = this.fetchStats.bind(this);
+    this.fetchPages = this.fetchPages.bind(this);
+    this.createPage = this.createPage.bind(this);
+    this.uploadImageToPage = this.uploadImageToPage.bind(this);
+    this.removeImageFromPage = this.removeImageFromPage.bind(this);
+    this.updatePage = this.updatePage.bind(this);
   }
 
   initializeAuth() {
@@ -130,12 +138,124 @@ class Store {
       querySnapshot.forEach((doc) => {
         pages.push({ id: doc.id, ...doc.data() });
       });
+
       runInAction(() => {
         this.pages = pages;
+        if (!this.activePage.name) {
+          this.activePage = pages[0];
+        }
         this.loading = false;
       });
     } catch (error) {
       console.error("Error fetching pages:", error);
+      this.loading = false;
+    }
+  }
+
+  async uploadImageToPage(projectId, pageId, imageFile) {
+    this.loading = true;
+    try {
+      if (!imageFile) {
+        throw new Error("No image file provided.");
+      }
+
+      const storage = getStorage();
+
+      const imageFileName = encodeURIComponent(imageFile.name);
+
+      const storagePath = `projects/${projectId}/pages/${pageId}/${imageFileName}`;
+
+      const imageRef = storageRef(storage, storagePath);
+
+      const uploadResult = await uploadBytes(imageRef, imageFile);
+      const imageUrl = await getDownloadURL(uploadResult.ref);
+
+      const pageRef = doc(db, "pages", pageId);
+      console.log({ pageRef, pageId });
+      await updateDoc(pageRef, { img: imageUrl, imgFilename: imageFileName });
+
+      runInAction(() => {
+        const index = this.pages.findIndex((page) => page.id === pageId);
+        if (index !== -1) {
+          this.pages[index].img = imageUrl;
+        }
+
+        this.loading = false;
+      });
+    } catch (error) {
+      console.error("Error uploading image to page:", error);
+      this.loading = false;
+    }
+  }
+
+  async removeImageFromPage(projectId, pageId, imgFilename) {
+    this.loading = true;
+    try {
+      // Define the storage path. This should match the path used for uploading.
+      const storage = getStorage();
+      const imageFileName = encodeURIComponent(imgFilename);
+      const storagePath = `projects/${projectId}/pages/${pageId}/${imageFileName}`;
+
+      // Reference to the file in the storage
+      const imageRef = storageRef(storage, storagePath);
+
+      // Delete the file
+      await deleteObject(imageRef);
+
+      // Remove the image URL from the Firestore document
+      const pageRef = doc(db, "pages", pageId);
+      await updateDoc(pageRef, { img: null });
+
+      // Update local state (if necessary)
+      runInAction(() => {
+        const index = this.pages.findIndex((page) => page.id === pageId);
+        if (index !== -1) {
+          this.pages[index].img = null;
+        }
+        this.loading = false;
+      });
+    } catch (error) {
+      console.error("Error removing image from page:", error);
+      this.loading = false;
+    }
+  }
+
+  async createPage(projectId, pageData) {
+    this.loading = true;
+
+    try {
+      const newPageData = { ...pageData };
+      const newPageRef = await addDoc(collection(db, "pages"), {
+        ...newPageData,
+        projectId: projectId,
+      });
+
+      runInAction(() => {
+        this.pages.push({ id: newPageRef.id, ...newPageData });
+        this.loading = false;
+      });
+    } catch (error) {
+      console.error("Error creating stat with image:", error);
+      this.loading = false;
+    }
+  }
+
+  async updatePage(pageId, updatesDate) {
+    this.loading = true;
+    try {
+      const pageRef = doc(db, "pages", pageId);
+      await updateDoc(pageRef, updatesDate);
+
+      runInAction(() => {
+        const index = this.pages.findIndex((page) => page.id === pageId);
+        if (index !== -1) {
+          this.pages[index] = { ...this.pages[index], ...updatesDate };
+        }
+        this.activePage = { ...this.activePage, ...updatesDate };
+        this.loading = false;
+      });
+    } catch (error) {
+      console.error("Error updating page:", error);
       this.loading = false;
     }
   }
@@ -159,41 +279,6 @@ class Store {
       });
     } catch (error) {
       console.error("Error fetching stats:", error);
-      this.loading = false;
-    }
-  }
-
-  async createPage(projectId, pageData, imageFile) {
-    this.loading = true;
-
-    try {
-      if (!imageFile) {
-        throw new Error("No image file provided.");
-      }
-
-      const storage = getStorage();
-
-      const imageFileName = encodeURIComponent(imageFile.name);
-
-      const storagePath = `projects/${projectId}/pages/${imageFileName}`;
-
-      const imageRef = storageRef(storage, storagePath);
-
-      const uploadResult = await uploadBytes(imageRef, imageFile);
-      const imageUrl = await getDownloadURL(uploadResult.ref);
-
-      const newPageData = { ...pageData, imageUrl };
-      const newPageRef = await addDoc(collection(db, "pages"), {
-        ...newPageData,
-        projectId: projectId,
-      });
-
-      runInAction(() => {
-        this.pages.push({ id: newPageRef.id, ...newPageData });
-        this.loading = false;
-      });
-    } catch (error) {
-      console.error("Error creating stat with image:", error);
       this.loading = false;
     }
   }
@@ -294,8 +379,7 @@ class Store {
     }
   }
 
-  //Items
-
+  // Items
   async fetchItems(projectId) {
     this.loading = true;
     try {
@@ -415,6 +499,7 @@ class Store {
     }
   }
 
+  // Projects
   async createProject(projectData) {
     this.loading = true;
     try {
@@ -499,7 +584,7 @@ class Store {
     }
   }
 
-  getProjects() {
+  async getProjects() {
     if (!this.user.uid) return;
 
     const projectsRef = collection(db, "projects");
@@ -519,6 +604,8 @@ class Store {
         console.error("Error fetching projects: ", error);
       });
   }
+
+  // Game State
 
   useOption(optionIndex) {
     const pageUsage = this.usedOptions.find(
@@ -648,6 +735,7 @@ class Store {
     });
   };
 
+  // Authentication
   async loginWithEmail({ email, password }) {
     console.log({ email, password });
     try {

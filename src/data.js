@@ -12,67 +12,67 @@ import room3Img from "./assets/room-3.png";
 import room4Img from "./assets/room-4.png";
 import room5Img from "./assets/room-5.png";
 
-export const stats = [
-  { id: 1, name: "Health", value: 3 },
-  { id: 2, name: "Gold", value: 0 },
-  { id: 3, name: "Strength", value: 1 },
-  { id: 4, name: "Wisdom", value: 1 },
-  { id: 5, name: "Agility", value: 1 },
-];
+// export const stats = [
+//   { id: 1, name: "Health", value: 3 },
+//   { id: 2, name: "Gold", value: 0 },
+//   { id: 3, name: "Strength", value: 1 },
+//   { id: 4, name: "Wisdom", value: 1 },
+//   { id: 5, name: "Agility", value: 1 },
+// ];
 
-export const items = [
-  {
-    id: 1,
-    img: item1,
-    name: "Vault",
-    effect: "Gain 1 Gold per page flipped",
-    // activations: [
-    //   {
-    //     room: 4,
-    //     option: {
-    //       label: "Give him the coin",
-    //       page: 19,
-    //     },
-    //   },
-    // ],
-  },
-  {
-    id: 2,
-    img: item2,
-    name: "Torch",
-    effect: "Unlocks Hidden Caves (Page 10).",
-  },
-  {
-    id: 3,
-    img: item3,
-    name: "Sac",
-    effect: "Holds keys",
-  },
-  {
-    id: 4,
-    img: item4,
-    name: "Bag",
-    effect: "+ 2 Inventory Slots",
-  },
-  {
-    id: 5,
-    img: item5,
-    name: "Documents",
-    effect: "Contains secret key to unlock Door (Page 6).",
-  },
-  {
-    id: 6,
-    img: item6,
-    name: "Sword",
-    effect: "Use: Deal 2 damage",
-  },
-  {
-    id: 7,
-    img: item7,
-    name: "Skull",
-    effect: "Use: Scare away enemies.",
-  },
-];
+// export const items = [
+//   {
+//     id: 1,
+//     img: item1,
+//     name: "Vault",
+//     effect: "Gain 1 Gold per page flipped",
+//     // activations: [
+//     //   {
+//     //     room: 4,
+//     //     option: {
+//     //       label: "Give him the coin",
+//     //       page: 19,
+//     //     },
+//     //   },
+//     // ],
+//   },
+//   {
+//     id: 2,
+//     img: item2,
+//     name: "Torch",
+//     effect: "Unlocks Hidden Caves (Page 10).",
+//   },
+//   {
+//     id: 3,
+//     img: item3,
+//     name: "Sac",
+//     effect: "Holds keys",
+//   },
+//   {
+//     id: 4,
+//     img: item4,
+//     name: "Bag",
+//     effect: "+ 2 Inventory Slots",
+//   },
+//   {
+//     id: 5,
+//     img: item5,
+//     name: "Documents",
+//     effect: "Contains secret key to unlock Door (Page 6).",
+//   },
+//   {
+//     id: 6,
+//     img: item6,
+//     name: "Sword",
+//     effect: "Use: Deal 2 damage",
+//   },
+//   {
+//     id: 7,
+//     img: item7,
+//     name: "Skull",
+//     effect: "Use: Scare away enemies.",
+//   },
+// ];
 
 export const rooms = [
   {

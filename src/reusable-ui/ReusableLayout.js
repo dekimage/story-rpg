@@ -166,9 +166,9 @@ const ReusableLayout = observer(({ children }) => {
               ]}
             />
             <Separator />
-            <div className="flex justify-center items-center w-[185px] m-2">
+            {/* <div className="flex justify-center items-center w-[185px] m-2">
               <CreateListDialog />
-            </div>
+            </div> */}
 
             {/* {lists.length > 0 && (
               <VerticalNavbar

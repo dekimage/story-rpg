@@ -110,8 +110,63 @@ const EditProjectBasics = ({ project }) => {
   );
 };
 
+const AddPageModal = ({ projectId, pagesLength }) => {
+  const [open, setOpen] = useState(false);
+  const [name, setName] = useState("");
+  const [page, setPage] = useState(pagesLength + 1);
+  const [description, setDescription] = useState("");
+
+  const onSubmit = async () => {
+    const pageData = { name, page, description };
+    await MobxStore.createPage(projectId, pageData);
+    setOpen(false);
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={setOpen}>
+      <DialogTrigger asChild>
+        <Button className="w-full max-w-[400px]">+ Add Page</Button>
+      </DialogTrigger>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Add Page</DialogTitle>
+          <DialogDescription>Manage page details</DialogDescription>
+        </DialogHeader>
+        <div className="flex flex-col gap-2">
+          <Input
+            type="text"
+            onChange={(e) => setName(e.target.value)}
+            value={name}
+            placeholder="Name"
+            className="w-full"
+          />
+          <Input
+            type="number"
+            onChange={(e) => setPage(e.target.value)}
+            value={page}
+            placeholder="Number"
+            className="w-full"
+          />
+          <Input
+            type="text"
+            onChange={(e) => setDescription(e.target.value)}
+            value={description}
+            placeholder="Description"
+            className="w-full"
+          />
+
+          <Button className="w-full" onClick={onSubmit}>
+            Create Page
+          </Button>
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+};
+
 const EditItemModal = ({ item, projectId, trigger }) => {
   const [open, setOpen] = useState(false);
+
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
@@ -240,6 +295,7 @@ const StatForm = ({ existingStat, projectId, setShowDialog }) => {
           style={{ width: "100px", height: "100px" }}
         />
       )}
+
       <Input
         type="file"
         className="cursor-pointer"
@@ -397,6 +453,7 @@ const EditProject = observer(({ params }) => {
     if (projectId) {
       MobxStore.fetchItems(projectId);
       MobxStore.fetchStats(projectId);
+      MobxStore.fetchPages(projectId);
     }
   }, [projectId]);
 
@@ -426,8 +483,8 @@ const EditProject = observer(({ params }) => {
           <EditProjectBasics project={project} />
           <div className="flex flex-wrap gap-4">
             {PROJECT_ENTITIES.map((e, i) => (
-              <div
-                className="p-4 h-28 w-64 text-2xl rounded border flex justify-between cursor-pointer shadow-md"
+              <Card
+                className="p-4 h-28 w-64 text-2xl flex justify-between cursor-pointer"
                 onClick={() => setView(e.toLowerCase())}
                 key={i}
               >
@@ -442,10 +499,14 @@ const EditProject = observer(({ params }) => {
                 <div className="">
                   <ChevronRight />
                 </div>
-              </div>
+              </Card>
             ))}
           </div>
         </div>
+      )}
+
+      {view == "page-details" && (
+        <StoryPage projectId={projectId} onBack={() => setView("pages")} />
       )}
 
       {view == "pages" && (
@@ -460,26 +521,28 @@ const EditProject = observer(({ params }) => {
             <ChevronLeft /> Back
           </Button>
           <TitleDescription title="Pages" description="Create & Edit Pages" />
-          <div className="flex flex-col gap-2">
-            {pages?.map((page, i) => (
-              <Card
-                key={i}
-                className="p-4 w-[400px] cursor-pointer"
-                onClick={() => {
-                  setView("page-details");
-                  setActivePage(page.page);
-                }}
-              >
-                <div className="text-lg font-bold">
-                  <span className="text-xl">{page.page}.</span> {page.name}
-                </div>
-              </Card>
-            ))}
+          <div className="flex flex-col gap-2 mb-4">
+            {pages
+              ?.slice()
+              .sort((a, b) => parseInt(a.page) - parseInt(b.page))
+              .map((page, i) => (
+                <Card
+                  key={i}
+                  className="p-4 w-[400px] cursor-pointer"
+                  onClick={() => {
+                    setView("page-details");
+                    setActivePage(page.page);
+                  }}
+                >
+                  <div className="text-lg font-bold">
+                    <span className="text-xl">{page.page}.</span> {page.name}
+                  </div>
+                </Card>
+              ))}
           </div>
+          <AddPageModal projectId={projectId} pagesLength={pages.length} />
         </div>
       )}
-
-      {view == "page-details" && <StoryPage projectId={projectId} />}
 
       {view == "items" && (
         <div className="flex flex-col gap-4">
