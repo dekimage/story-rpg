@@ -103,6 +103,12 @@ class Store {
     this.uploadImageToPage = this.uploadImageToPage.bind(this);
     this.removeImageFromPage = this.removeImageFromPage.bind(this);
     this.updatePage = this.updatePage.bind(this);
+    this.reduceStat = this.reduceStat.bind(this);
+    this.addItemToInventory = this.addItemToInventory.bind(this);
+    this.removeItemFromInventory = this.removeItemFromInventory.bind(this);
+    this.checkPageNumberExists = this.checkPageNumberExists.bind(this);
+    this.findMissingPagesFromOptions =
+      this.findMissingPagesFromOptions.bind(this);
   }
 
   initializeAuth() {
@@ -171,7 +177,7 @@ class Store {
       const imageUrl = await getDownloadURL(uploadResult.ref);
 
       const pageRef = doc(db, "pages", pageId);
-      console.log({ pageRef, pageId });
+
       await updateDoc(pageRef, { img: imageUrl, imgFilename: imageFileName });
 
       runInAction(() => {
@@ -323,7 +329,6 @@ class Store {
     const statId = existingStat.id;
     const existingUrl = existingStat.imageUrl;
 
-    console.log({ existingStat });
     this.loading = true;
     try {
       if (newImageFile) {
@@ -370,7 +375,7 @@ class Store {
 
       runInAction(() => {
         this.stats = this.stats.filter((stat) => stat.id !== statId);
-        console.log(123123);
+
         this.loading = false;
       });
     } catch (error) {
@@ -443,7 +448,6 @@ class Store {
     const itemId = existingItem.id;
     const existingUrl = existingItem.imageUrl;
 
-    console.log({ existingItem });
     this.loading = true;
     try {
       if (newImageFile) {
@@ -490,7 +494,7 @@ class Store {
 
       runInAction(() => {
         this.items = this.items.filter((item) => item.id !== itemId);
-        console.log(123123);
+
         this.loading = false;
       });
     } catch (error) {
@@ -641,7 +645,7 @@ class Store {
   };
 
   setActivePage = (pageNum) => {
-    const newPage = this.pages.find((p) => p.page === pageNum);
+    const newPage = this.pages.find((p) => p.page === parseInt(pageNum));
     if (newPage) {
       runInAction(() => {
         this.activePage = newPage;
@@ -652,22 +656,43 @@ class Store {
   };
 
   updateStat = (gain_stat) => {
-    const statId = Object.keys(gain_stat)[0];
-    const statIndex = this.stats.findIndex(
-      (stat) => stat.id === parseInt(statId)
-    );
+    const statId = gain_stat.statId;
+    const statIndex = this.stats.findIndex((stat) => stat.id === statId);
     if (statIndex !== -1) {
       runInAction(() => {
-        this.stats[statIndex].value += gain_stat[statId];
+        if (gain_stat.operation === "+") {
+          this.stats[statIndex].value += gain_stat.value;
+        } else if (gain_stat.operation == "-") {
+          this.stats[statIndex].value -= gain_stat.value;
+        }
       });
     }
   };
 
-  addItemToInventory = (gain_item) => {
-    const itemToAdd = this.items.find((item) => item.id === gain_item);
+  addItemToInventory = (itemId) => {
+    const itemToAdd = this.items.find((item) => item.id === itemId);
+
     if (itemToAdd) {
       runInAction(() => {
         this.inventory.push(itemToAdd);
+      });
+    }
+  };
+
+  removeItemFromInventory = (itemId) => {
+    const itemIndex = this.inventory.findIndex((item) => item.id === itemId);
+    if (itemIndex !== -1) {
+      runInAction(() => {
+        this.inventory.splice(itemIndex, 1);
+      });
+    }
+  };
+
+  reduceStat = ({ statId, value }) => {
+    const statIndex = this.stats.findIndex((stat) => stat.id === statId);
+    if (statIndex !== -1) {
+      runInAction(() => {
+        this.stats[statIndex].value -= value;
       });
     }
   };
@@ -694,50 +719,78 @@ class Store {
     if (option.gain_item) {
       this.addItemToInventory(option.gain_item);
     }
+
+    if (option.blocked?.requirement == "give item") {
+      removeItemFromInventory(option.blocked.itemId);
+    }
+
+    if (option.blocked?.requirement == "give stat") {
+      this.reduceStat(option.blocked.stat);
+    }
   };
 
   hasItem(itemId) {
     return this.inventory.some((item) => item.id === itemId);
   }
 
-  meetsStatCondition(statCondition) {
-    const [statId, operator, value] = statCondition;
+  meetsStatCondition(blocked) {
+    const { statId, operation, value } = blocked.stat;
     const stat = this.stats.find((stat) => stat.id === statId);
 
     if (!stat) return false; // Stat not found
 
-    switch (operator) {
+    if (blocked.requirement === "give stat") {
+      return stat.value >= value;
+    }
+
+    switch (operation) {
       case "<":
         return stat.value < value;
       case ">":
         return stat.value > value;
       case "=":
-        return stat.value === value;
+        return stat.value == value;
       default:
-        console.error("Invalid operator", operator);
+        console.error("Invalid operator", operation);
         return false; // Invalid operator
     }
   }
 
-  isOptionUnlocked = (conditions) => {
-    return conditions.every((condition) => {
-      if (condition.item) {
-        return this.hasItem(condition.item);
-      }
+  isOptionUnlocked = (blocked) => {
+    if (blocked.item) {
+      return this.hasItem(blocked.item);
+    }
 
-      if (condition.stat) {
-        return this.meetsStatCondition(condition.stat);
-      }
+    if (blocked.stat) {
+      return this.meetsStatCondition(blocked);
+    }
 
-      // Assuming every condition has either an item or stat check,
-      // but adding a default true in case a new type of condition without checks is added.
-      return true;
-    });
+    // Assuming every condition has either an item or stat check,
+    // but adding a default true in case a new type of condition without checks is added.
+    return true;
+  };
+
+  checkPageNumberExists = (pageNum) => {
+    return this.pages.some((p) => p.page == pageNum);
+  };
+
+  findMissingPagesFromOptions = () => {
+    const missingPages = [];
+    for (const page of this.pages) {
+      for (const option of page.options || []) {
+        if (option.page && !this.checkPageNumberExists(parseInt(option.page))) {
+          missingPages.push({
+            foundIn: { page: page.page, option: option.label },
+            missingPage: option.page,
+          });
+        }
+      }
+    }
+    return missingPages;
   };
 
   // Authentication
   async loginWithEmail({ email, password }) {
-    console.log({ email, password });
     try {
       this.loading = true;
       const userCredential = await signInWithEmailAndPassword(
@@ -746,7 +799,6 @@ class Store {
         password
       );
       runInAction(() => {
-        console.log(userCredential.user);
         this.user = userCredential.user;
         this.loading = false;
       });

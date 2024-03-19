@@ -1,5 +1,5 @@
 "use client";
-import { ChevronLeft } from "lucide-react";
+import { ChevronDown, ChevronLeft, ChevronUp } from "lucide-react";
 
 import bookIcon from "../../../../assets/bookIcon.png";
 import lockIcon from "../../../../assets/lockIcon.png";
@@ -19,6 +19,9 @@ import { Dialog, DialogContent, DialogTrigger } from "@/components/ui/dialog";
 import { Combobox } from "@/StoryComponents/ComboBox";
 import { useEffect } from "react";
 import { useParams, usePathname, useRouter } from "next/navigation";
+import { toJS } from "mobx";
+import { useRef } from "react";
+import { AddPageModal } from "../../edit/[id]/page";
 
 const QuestionHelpBox = ({ children }) => {
   return (
@@ -59,321 +62,491 @@ const Stats = ({ stats }) => (
 
 const Item = ({ item }) => (
   <div className="cursor-pointer">
-    <Image src={item.img} alt="item" height={100} width={100} />
+    <Image src={item.imageUrl} alt="item" height={100} width={100} />
   </div>
 );
 
-const Option = ({
-  option,
-  unlocked,
-  remainingUses,
-  usageCount,
-  index,
-  isEditMode,
-  updateProperty,
-}) => {
-  const {
-    handleOptionClick,
-    findItem,
-    findStat,
-    hasItem,
-    meetsStatCondition,
-    stats,
-    items,
-  } = MobxStore;
-  const [showLock, setShowLock] = useState(false);
-  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+const Option = observer(
+  ({
+    option,
+    unlocked,
+    remainingUses,
+    usageCount,
+    index,
+    isEditMode,
+    updateProperty,
+  }) => {
+    const {
+      handleOptionClick,
+      findItem,
+      findStat,
+      hasItem,
+      meetsStatCondition,
+      stats,
+      items,
+      checkPageNumberExists,
+      pages,
+    } = MobxStore;
 
-  const [isGiveStats, setIsGiveStats] = useState(option.gain_stat);
+    const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+    const [isOptionLimited, setIsOptionLimited] = useState(option.uses);
 
-  const [isGiveItem, setIsGiveItem] = useState(false);
-  const [selectedItem, setSelectedItem] = useState("");
+    const statsForCombobox = stats.map((stat) => ({
+      label: stat.name,
+      value: stat.id,
+    }));
 
-  const [isOptionHidden, setIsOptionHidden] = useState(false);
-  const [requirementOption, setRequirementOption] = useState("");
+    const itemsForCombobox = items.map((item) => ({
+      label: item.name,
+      value: item.id,
+    }));
 
-  const isGainStat = option.isGiveStats || isGiveStats;
+    const hasAnySettings =
+      option.gain_item || option.gain_stat || option.uses || option.blocked;
 
-  const statsForCombobox = stats.map((stat) => ({
-    label: stat.name,
-    value: stat.id,
-  }));
+    const numberOfSettings = [
+      option.gain_item,
+      option.gain_stat,
+      option.uses,
+      option.blocked,
+    ].filter((setting) => setting).length;
 
-  const itemsForCombobox = items.map((item) => ({
-    label: item.name,
-    value: item.id,
-  }));
+    const pageExists = checkPageNumberExists(parseInt(option.page));
+    const params = useParams();
+    const projectId = params.id;
 
-  return (
-    <div
-      className="flex flex-col border relative"
-      onClick={() => {
-        if (isEditMode) return;
-        !unlocked && setShowLock(!showLock);
-        unlocked && handleOptionClick(option, index);
-      }}
-    >
+    return (
       <div
-        className={`flex  rounded items-center justify-between  transition duration-300 ease-in-out ${
-          !unlocked ? "opacity-99" : "hover:shadow-lg cursor-pointer"
-        }`}
+        className="flex flex-col border relative"
+        onClick={() => {
+          if (isEditMode) return;
+
+          unlocked && handleOptionClick(option, index);
+        }}
       >
-        {remainingUses != undefined && (
-          <Badge className="absolute top-[-5px] right-[-5px] bg-green-300 px-1 rounded flex justify-center items-center font-bold">
-            {remainingUses}/{usageCount + remainingUses}
-          </Badge>
-        )}
+        <div
+          className={`flex  rounded items-center justify-between  transition duration-300 ease-in-out ${
+            !unlocked ? "opacity-99" : "hover:shadow-lg cursor-pointer"
+          }`}
+        >
+          {remainingUses != undefined && (
+            <Badge className="absolute top-[-5px] right-[-5px] bg-green-300 px-1 rounded flex justify-center items-center font-bold">
+              {remainingUses}/{usageCount + remainingUses}
+            </Badge>
+          )}
 
-        <div className="bg-yellow-200 w-6 h-full min-h-[60px]"></div>
-        {isEditMode ? (
-          <Input
-            className="flex w-full pl-2 text-md h-full"
-            value={option.label}
-            onChange={(e) => updateProperty("label", e.target.value)}
-          />
-        ) : (
-          <div className="flex w-full pl-2 text-md">{option.label}</div>
-        )}
-
-        <div className="flex gap-1 bg-yellow-200 h-full w-24 justify-center items-center px-2 font-bold">
-          <Image
-            src={unlocked ? bookIcon : lockIcon}
-            alt="icon"
-            height={20}
-            width={20}
-          />
-          <div className="text-black">
-            {unlocked && !isEditMode && option.page}
-          </div>
-          {unlocked && isEditMode && (
+          <div className="bg-yellow-200 w-6 h-full min-h-[60px]"></div>
+          {isEditMode ? (
             <Input
-              className="flex w-full pl-2 text-md w-[44px]"
-              value={option.page}
-              onChange={(e) => updateProperty("page", e.target.value)}
+              className="flex w-full pl-2 text-md h-full"
+              value={option.label}
+              onChange={(e) => updateProperty("label", e.target.value)}
             />
+          ) : (
+            <div className="flex w-full pl-2 text-md">{option.label}</div>
+          )}
+
+          <div className="flex gap-1 bg-yellow-200 h-full w-24 justify-center items-center px-2 font-bold">
+            <Image
+              src={unlocked ? bookIcon : lockIcon}
+              alt="icon"
+              height={20}
+              width={20}
+            />
+            <div className="text-black">
+              {unlocked && !isEditMode && option.page}
+            </div>
+            {unlocked && isEditMode && (
+              <Input
+                type="number"
+                className="flex w-full pl-2 text-md w-[44px] input-number-hide-arrows"
+                value={option.page}
+                onChange={(e) => updateProperty("page", e.target.value)}
+              />
+            )}
+          </div>
+        </div>
+
+        <div className="flex">
+          {option.blocked && !isEditMode && (
+            <div className="py-2 border-top border-t w-full h-full flex items-center gap-2 ">
+              <div className="text-xs ml-1">Requires:</div>
+              {
+                <div className="flex items-center gap-2">
+                  {option.blocked.requirement.includes("item") &&
+                    option.blocked.item && (
+                      <>
+                        {(() => {
+                          const item = findItem(option.blocked.item);
+
+                          const itemConditionMet =
+                            item && hasItem(option.blocked.item);
+                          return (
+                            <>
+                              <Image
+                                src={item.imageUrl}
+                                alt={item.name}
+                                height={30}
+                                width={30}
+                              />
+                              {/* Show checkmark if item condition is met */}
+                              {itemConditionMet && (
+                                <svg
+                                  className="h-4 w-4 text-green-500"
+                                  fill="none"
+                                  viewBox="0 0 24 24"
+                                  stroke="currentColor"
+                                >
+                                  <path
+                                    strokeLinecap="round"
+                                    strokeLinejoin="round"
+                                    strokeWidth={2}
+                                    d="M5 13l4 4L19 7"
+                                  />
+                                </svg>
+                              )}
+                            </>
+                          );
+                        })()}
+                      </>
+                    )}
+                  {
+                    // Handling blocked stats
+                    option.blocked.requirement.includes("stat") &&
+                      option.blocked.stat && (
+                        <>
+                          {(() => {
+                            const stat = findStat(option.blocked.stat.statId);
+                            const statName = stat.name;
+                            const statConditionMet = meetsStatCondition(
+                              option.blocked
+                            );
+                            return (
+                              <>
+                                <span className="text-xs">
+                                  {statName}: {option.blocked.stat.operation}{" "}
+                                  {option.blocked.stat.value}
+                                </span>
+                                {/* Show checkmark if stat condition is met */}
+                                {statConditionMet && (
+                                  <svg
+                                    className="h-4 w-4 text-green-500"
+                                    fill="none"
+                                    viewBox="0 0 24 24"
+                                    stroke="currentColor"
+                                  >
+                                    <path
+                                      strokeLinecap="round"
+                                      strokeLinejoin="round"
+                                      strokeWidth={2}
+                                      d="M5 13l4 4L19 7"
+                                    />
+                                  </svg>
+                                )}
+                              </>
+                            );
+                          })()}
+                        </>
+                      )
+                  }
+                </div>
+              }
+            </div>
           )}
         </div>
-      </div>
 
-      <div className="flex">
-        {option.locked && !unlocked && showLock && (
-          <div className="py-2 border-top border-t w-full h-full flex items-center gap-2 ">
-            <div className="text-xs ml-1">Requires:</div>
-            {option.locked.map((lock, i) => {
-              const item = lock.item && findItem(lock.item);
-              const statName = lock.stat && findStat(lock.stat[0]).name;
-              const itemConditionMet = item && hasItem(lock.item);
-              const statConditionMet =
-                lock.stat && meetsStatCondition(lock.stat);
+        {!pageExists && isEditMode && (
+          <div className="flex items-center font-sm p-2">
+            <div className="text-yellow-500">
+              Warning: page {option.page} does not exist
+            </div>
+            <AddPageModal projectId={projectId} pagesLength={pages.length} />
+          </div>
+        )}
 
-              return (
-                <div key={i} className="flex items-center gap-2 ">
-                  {lock.item && (
-                    <>
-                      <Image
-                        src={item.img}
-                        alt={item.name}
-                        height={30}
-                        width={30}
-                      />
-                      {/* Show checkmark if item condition is met */}
-                      {itemConditionMet && (
-                        <svg
-                          className="h-4 w-4 text-green-500"
-                          fill="none"
-                          viewBox="0 0 24 24"
-                          stroke="currentColor"
-                        >
-                          <path
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                            strokeWidth={2}
-                            d="M5 13l4 4L19 7"
-                          />
-                        </svg>
-                      )}
-                    </>
+        {isEditMode && (
+          <div
+            className="flex justify-between text-blue-500 hover:text-blue-200 transition cursor-pointer text-sm p-2"
+            onClick={() => setIsSettingsOpen(!isSettingsOpen)}
+          >
+            <div>
+              {isSettingsOpen
+                ? "Hide Settings"
+                : hasAnySettings
+                ? `Edit Settings (${numberOfSettings})`
+                : "+ Add Settings"}
+            </div>
+            <div>
+              {isSettingsOpen ? (
+                <ChevronUp />
+              ) : (
+                hasAnySettings && <ChevronDown />
+              )}{" "}
+            </div>
+          </div>
+        )}
+
+        {isSettingsOpen && isEditMode && (
+          <div className="flex flex-col gap-2 p-2">
+            <SwitchWithHelper
+              title="Adjust Player Stats"
+              value={option.gain_stat}
+              callback={() => {
+                updateProperty(
+                  "gain_stat",
+                  option.gain_stat
+                    ? false
+                    : {
+                        statId: statsForCombobox[0].value,
+                        value: 1,
+                        operation: "+",
+                      }
+                );
+              }}
+              helperChildren={"Auto play is..."}
+            />
+            {option.gain_stat && (
+              <div className="gap-2 p-2 flex border-b pb-6">
+                <Combobox
+                  value={option?.gain_stat?.statId}
+                  setValue={(value) =>
+                    updateProperty("gain_stat.statId", value)
+                  }
+                  searchLabel={"Stats"}
+                  options={statsForCombobox}
+                />
+                <Combobox
+                  value={option?.gain_stat?.operation}
+                  setValue={(value) =>
+                    updateProperty("gain_stat.operation", value)
+                  }
+                  options={[
+                    { label: "+", value: "+" },
+                    { label: "-", value: "-" },
+                  ]}
+                  select
+                />
+                <Input
+                  className="w-16"
+                  type="number"
+                  value={option?.gain_stat?.value}
+                  onChange={(e) =>
+                    updateProperty("gain_stat.value", parseInt(e.target.value))
+                  }
+                />
+              </div>
+            )}
+
+            <SwitchWithHelper
+              title="Give Item"
+              value={!!option.gain_item}
+              callback={() => {
+                updateProperty(
+                  "gain_item",
+                  option.gain_item ? false : itemsForCombobox[0].value
+                );
+              }}
+              helperChildren={"Auto play is..."}
+            />
+
+            {option.gain_item && (
+              <div className="gap-2 p-2 flex items-center border-b pb-6">
+                <div>Obtain Item: </div>
+                <Combobox
+                  value={option.gain_item || itemsForCombobox[0].value}
+                  setValue={(value) => {
+                    updateProperty("gain_item", value);
+                  }}
+                  searchLabel={"Items"}
+                  options={itemsForCombobox}
+                />
+              </div>
+            )}
+
+            <SwitchWithHelper
+              title="Limit Uses"
+              value={isOptionLimited}
+              callback={() => {
+                updateProperty("uses", isOptionLimited ? false : 1);
+                setIsOptionLimited(!isOptionLimited);
+              }}
+              helperChildren={
+                "There is a limit to how many times this option can be used."
+              }
+            />
+
+            {isOptionLimited && (
+              <div className="border-b pb-6">
+                <Input
+                  type="number"
+                  className="w-16"
+                  value={option.uses}
+                  onChange={(e) => updateProperty("uses", e.target.value)}
+                />
+              </div>
+            )}
+
+            <SwitchWithHelper
+              title="Locked / Hidden"
+              value={option.blocked}
+              callback={() => {
+                updateProperty(
+                  "blocked",
+                  option.blocked
+                    ? false
+                    : {
+                        type: "locked",
+                        requirement: "give item",
+                        item: itemsForCombobox[0].value,
+                      }
+                );
+              }}
+              helperChildren={"Auto play is..."}
+            />
+
+            {option.blocked && (
+              <div className="gap-4 p-2 flex flex-col">
+                <Combobox
+                  label="Option is"
+                  value={option.blocked?.type}
+                  setValue={(value) => {
+                    updateProperty("blocked.type", value);
+                  }}
+                  select
+                  options={[
+                    { label: "Hidden", value: "hidden" },
+                    { label: "Locked", value: "locked" },
+                  ]}
+                />
+
+                <Combobox
+                  label="Requirement"
+                  value={option.blocked?.requirement}
+                  setValue={(value) =>
+                    // updateProperty("blocked.requirement", value)
+                    {
+                      if (value == "give item" || value == "have item") {
+                        updateProperty([
+                          { property: "blocked.requirement", value },
+                          {
+                            property: "blocked.item",
+                            value: itemsForCombobox[0].value,
+                          },
+                          {
+                            property: "blocked.stat",
+                            value: false,
+                          },
+                        ]);
+                      }
+                      if (value == "give stat" || value == "have stat") {
+                        updateProperty([
+                          { property: "blocked.requirement", value },
+                          {
+                            property: "blocked.stat",
+                            value: {
+                              statId: statsForCombobox[0].value,
+                              value: 1,
+                              ...(value == "have stat" && { operation: ">" }),
+                            },
+                          },
+                          {
+                            property: "blocked.item",
+                            value: false,
+                          },
+                        ]);
+                      }
+                    }
+                  }
+                  select
+                  options={[
+                    { label: "Give Item", value: "give item" },
+                    { label: "Have Item", value: "have item" },
+                    { label: "Give Stat", value: "give stat" },
+                    { label: "Have Stat", value: "have stat" },
+                  ]}
+                />
+
+                <div className="flex flex-col gap-4">
+                  {(option.blocked?.requirement == "give item" ||
+                    option.blocked?.requirement == "have item") && (
+                    <Combobox
+                      value={option.blocked?.item || itemsForCombobox[0].value}
+                      setValue={(value) =>
+                        updateProperty("blocked.item", value)
+                      }
+                      searchLabel="Items"
+                      options={itemsForCombobox}
+                    />
                   )}
 
-                  {lock.stat && (
-                    <>
-                      <span className="text-xs">
-                        {statName}: {lock.stat.slice(1).join(" ")}
-                      </span>
-                      {/* Show checkmark if stat condition is met */}
-                      {statConditionMet && (
-                        <svg
-                          className="h-4 w-4 text-green-500"
-                          fill="none"
-                          viewBox="0 0 24 24"
-                          stroke="currentColor"
-                        >
-                          <path
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                            strokeWidth={2}
-                            d="M5 13l4 4L19 7"
-                          />
-                        </svg>
-                      )}
-                    </>
+                  {option.blocked?.requirement == "have stat" && (
+                    <div className="gap-2 p-2 flex">
+                      <Combobox
+                        value={
+                          option.blocked?.stat?.statId ||
+                          statsForCombobox[0].value
+                        }
+                        setValue={(value) =>
+                          updateProperty("blocked.stat.statId", value)
+                        }
+                        searchLabel="Stats"
+                        options={statsForCombobox}
+                      />
+                      <Combobox
+                        value={option.blocked?.stat?.operation || ">"}
+                        setValue={(value) =>
+                          updateProperty("blocked.stat.operation", value)
+                        }
+                        select
+                        options={[
+                          { label: ">", value: ">" },
+                          { label: "<", value: "<" },
+                          { label: "=", value: "=" },
+                        ]}
+                      />
+                      <Input
+                        className="w-16"
+                        type="number"
+                        value={option.blocked?.stat?.value}
+                        onChange={(e) =>
+                          updateProperty("blocked.stat.value", e.target.value)
+                        }
+                      />
+                    </div>
+                  )}
+
+                  {option.blocked?.requirement == "give stat" && (
+                    <div className="gap-2 p-2 flex">
+                      <Combobox
+                        value={
+                          option.blocked?.stat?.statId ||
+                          statsForCombobox[0].value
+                        }
+                        setValue={(value) =>
+                          updateProperty("blocked.stat.statId", value)
+                        }
+                        searchLabel="Stats"
+                        options={statsForCombobox}
+                      />
+
+                      <Input
+                        className="w-16"
+                        value={option.blocked?.stat?.value}
+                        onChange={(e) =>
+                          updateProperty("blocked.stat.value", e.target.value)
+                        }
+                      />
+                    </div>
                   )}
                 </div>
-              );
-            })}
+              </div>
+            )}
           </div>
         )}
       </div>
-
-      {isEditMode && (
-        <div
-          className="text-blue-500 hover:text-blue-200 transition cursor-pointer text-sm p-2"
-          onClick={() => setIsSettingsOpen(!isSettingsOpen)}
-        >
-          {isSettingsOpen ? "Hide Settings" : "+ Add Settings"}
-        </div>
-      )}
-
-      {isSettingsOpen && isEditMode && (
-        <div className="flex flex-col gap-2 p-2">
-          <SwitchWithHelper
-            title="Adjust Player Stats"
-            value={isGiveStats}
-            callback={() => {
-              // updateProperty("gain_stat", {});
-              setIsGiveStats(!isGiveStats);
-            }}
-            helperChildren={"Auto play is..."}
-          />
-          {isGainStat && (
-            <div className="gap-2 p-2 flex">
-              <Combobox
-                value={option?.gain_stat?.statId}
-                setValue={(value) => updateProperty("gain_stat.statId", value)}
-                searchLabel={"Search Stats"}
-                options={statsForCombobox}
-              />
-              <Combobox
-                value={option?.gain_stat?.operation}
-                setValue={(value) =>
-                  updateProperty("gain_stat.operation", value)
-                }
-                options={[
-                  { label: "+", value: "+" },
-                  { label: "-", value: "-" },
-                ]}
-                select
-              />
-              <Input
-                className="w-16"
-                value={option?.gain_stat?.value || 1}
-                onChange={(e) =>
-                  updateProperty("gain_stat.value", e.target.value)
-                }
-              />
-            </div>
-          )}
-
-          <SwitchWithHelper
-            title="Give Item"
-            value={isGiveItem}
-            callback={() => {
-              // updateProperty("gain_item", null);
-              setIsGiveItem(!isGiveItem);
-            }}
-            helperChildren={"Auto play is..."}
-          />
-
-          {isGiveItem && (
-            <div className="gap-2 p-2 flex items-center">
-              <div>Obtain Item: </div>
-              <Combobox
-                value={option?.gain_item}
-                setValue={(value) => updateProperty("gain_item", value)}
-                searchLabel={"Search Items"}
-                options={itemsForCombobox}
-              />
-            </div>
-          )}
-
-          {/* <SwitchWithHelper
-            title="Disable Page Link"
-            value={option.isPageLinkDisabled}
-            callback={() =>
-              updateProperty("isPageLinkDisabled", !option.isPageLinkDisabled)
-            }
-            helperChildren={"Auto play is..."}
-          /> */}
-
-          <SwitchWithHelper
-            title="Locked / Hidden"
-            value={isOptionHidden}
-            callback={() => setIsOptionHidden(!isOptionHidden)}
-            helperChildren={"Auto play is..."}
-          />
-
-          {isOptionHidden && (
-            <div className="gap-4 p-2 flex flex-col">
-              <Combobox
-                label="Option is"
-                value={requirementOption}
-                setValue={setRequirementOption}
-                select
-                options={[
-                  { label: "Hidden", value: "hidden" },
-                  { label: "Locked", value: "locked" },
-                ]}
-              />
-
-              <Combobox
-                label="Requirement"
-                value={requirementOption}
-                setValue={setRequirementOption}
-                select
-                options={[
-                  { label: "Give Item", value: "give item" },
-                  { label: "Have Item", value: "have item" },
-                  { label: "Give Stat", value: "give stat" },
-                  { label: "Have Stat", value: "have stat" },
-                ]}
-              />
-
-              <div className="flex flex-col gap-4">
-                {(requirementOption == "give item" ||
-                  requirementOption == "have item") && (
-                  <Combobox
-                    value={requirementOption}
-                    setValue={setRequirementOption}
-                    searchLabel="Search Items"
-                    options={[{ label: "Sword" }, { label: "Magic Hat" }]}
-                  />
-                )}
-                {(requirementOption == "give stat" ||
-                  requirementOption == "have stat") && (
-                  <div className="gap-2 p-2 flex">
-                    <Combobox
-                      value={requirementOption}
-                      setValue={setRequirementOption}
-                      searchLabel="Search Stats"
-                      options={[{ label: "Agility" }, { label: "Strength" }]}
-                    />
-                    <Combobox
-                      value={requirementOption}
-                      setValue={setRequirementOption}
-                      select
-                      options={[{ label: ">" }, { label: "<" }, { label: "=" }]}
-                    />
-                    <Input className="w-16" value={5} />
-                  </div>
-                )}
-              </div>
-            </div>
-          )}
-        </div>
-      )}
-    </div>
-  );
-};
+    );
+  }
+);
 
 const Options = ({ options, setOptions, isEditMode, addOption }) => {
   const { isOptionUnlocked } = MobxStore;
@@ -384,13 +557,37 @@ const Options = ({ options, setOptions, isEditMode, addOption }) => {
     }
     obj[path[path.length - 1]] = value;
   }
-  const updateOptionProperty = (index, propertyPath, value) => {
+  // const updateOptionProperty = (index, propertyPath, value) => {
+  //   const updatedOptions = options.map((option, optionIndex) => {
+  //     if (optionIndex === index) {
+  //       // Clone the option to maintain immutability
+  //       const updatedOption = { ...option };
+  //       // Update the property using the utility function
+  //       updateNestedProperty(updatedOption, propertyPath, value);
+  //       return updatedOption;
+  //     }
+  //     return option; // Return other options unchanged
+  //   });
+
+  //   setOptions(updatedOptions); // Update the state with the new options array
+  // };
+
+  const updateOptionProperties = (index, updatesOrProperty, value) => {
+    // Convert single update to array format if the second argument is a string (property path)
+    let updates = updatesOrProperty;
+    if (typeof updatesOrProperty === "string") {
+      updates = [{ property: updatesOrProperty, value: value }];
+    }
+
     const updatedOptions = options.map((option, optionIndex) => {
       if (optionIndex === index) {
         // Clone the option to maintain immutability
         const updatedOption = { ...option };
-        // Update the property using the utility function
-        updateNestedProperty(updatedOption, propertyPath, value);
+        // Iterate through each update in the updates array
+        updates.forEach((update) => {
+          // Update the property using the utility function
+          updateNestedProperty(updatedOption, update.property, update.value);
+        });
         return updatedOption;
       }
       return option; // Return other options unchanged
@@ -398,6 +595,7 @@ const Options = ({ options, setOptions, isEditMode, addOption }) => {
 
     setOptions(updatedOptions); // Update the state with the new options array
   };
+
   return (
     <div className="flex flex-col gap-8">
       {options?.map((option, index) => {
@@ -406,8 +604,13 @@ const Options = ({ options, setOptions, isEditMode, addOption }) => {
           ? option.uses - usageCount
           : undefined;
 
-        const unlocked = !option.locked || isOptionUnlocked(option.locked);
-        const hidden = option.hidden && !isOptionUnlocked(option.hidden);
+        const unlocked = !isEditMode
+          ? option.blocked?.type != "locked" || isOptionUnlocked(option.blocked)
+          : true;
+        const hidden = !isEditMode
+          ? option.blocked?.type == "hidden" &&
+            !isOptionUnlocked(option.blocked)
+          : false;
 
         if (hidden) return null;
 
@@ -421,7 +624,7 @@ const Options = ({ options, setOptions, isEditMode, addOption }) => {
             remainingUses={remainingUses}
             isEditMode={isEditMode}
             updateProperty={(propertyPath, value) =>
-              updateOptionProperty(index, propertyPath, value)
+              updateOptionProperties(index, propertyPath, value)
             }
           />
         );
@@ -440,7 +643,7 @@ const Options = ({ options, setOptions, isEditMode, addOption }) => {
 
 const StoryPage = observer(({ onBack }) => {
   const isEditPage = usePathname().includes("edit");
-  const { activePage, inventory, stats, items } = MobxStore;
+  const { activePage, inventory, stats } = MobxStore;
 
   const [isEditMode, setIsEditMode] = useState(isEditPage);
 
@@ -458,6 +661,27 @@ const StoryPage = observer(({ onBack }) => {
   const [editName, setEditName] = useState(name);
   const [editDescription, setEditDescription] = useState(description);
   const [editOptions, setEditOptions] = useState(options || []);
+
+  const prevActivePageRef = useRef({ page, name, description, options });
+
+  useEffect(() => {
+    if (isEditMode) return;
+
+    const {
+      page: prevPage,
+      name: prevName,
+      description: prevDescription,
+      options: prevOptions,
+    } = prevActivePageRef.current;
+
+    if (page !== prevPage) setEditPage(page);
+    if (name !== prevName) setEditName(name);
+    if (description !== prevDescription) setEditDescription(description);
+    if (JSON.stringify(options) !== JSON.stringify(prevOptions))
+      setEditOptions(options || []);
+
+    prevActivePageRef.current = { page, name, description, options };
+  }, [page, name, description, options, isEditMode]);
 
   const savePage = async () => {
     await MobxStore.updatePage(activePage.id, {
@@ -552,6 +776,7 @@ const StoryPage = observer(({ onBack }) => {
               <Image src={bookIcon} alt="book" height={32} width={38} />
               {isEditMode ? (
                 <Input
+                  type="number"
                   className="text-4xl flex gap-2 w-[100px]"
                   value={editPage}
                   onChange={(e) => setEditPage(e.target.value)}
@@ -589,16 +814,16 @@ const StoryPage = observer(({ onBack }) => {
             />
           </div>
 
-          <div className="w-1/2 flex justify-center items-center relative">
+          <div className="w-1/2 flex justify-center items-center">
             {img ? (
-              <div>
+              <div className="relative">
                 <Image src={img} alt="item" height={600} width={600} />
 
                 {isEditMode && (
                   <Button
                     onClick={() => removeImage()}
                     variant="outline"
-                    className="absolute top-5 left-5"
+                    className="absolute top-5 right-5"
                   >
                     Remove Image
                   </Button>

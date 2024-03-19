@@ -3,12 +3,24 @@ import MobxStore from "@/mobx";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { ChevronLeft, ChevronRight, Cog, CogIcon, Plus } from "lucide-react";
+import {
+  ChevronDown,
+  ChevronLeft,
+  ChevronRight,
+  ChevronUp,
+  Cog,
+  CogIcon,
+  DollarSign,
+  Plus,
+  PlusCircle,
+  SquareSlashIcon,
+  User,
+} from "lucide-react";
 
 import { observer } from "mobx-react";
 import { useEffect, useState } from "react";
 import Image from "next/image";
-import { Card } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   Dialog,
   DialogContent,
@@ -22,13 +34,78 @@ import { Label } from "@/components/ui/label";
 import { TitleDescription } from "@/reusable-ui/TitleDescription";
 import { Switch } from "@/components/ui/switch";
 import StoryPage from "../../play/[id]/page";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { FaCarCrash, FaCompressArrowsAlt } from "react-icons/fa";
+import { AnalysisCharts, dummyAnalytics } from "../analytics";
+
+import imgPlaceholder from "@/assets/placeholder.png";
+import bookIcon from "../../../../assets/bookIcon.png";
 
 const PROJECT_ENTITIES = [
-  "Pages",
-  "Items",
-  "Stats",
+  {
+    title: "Pages",
+    description: "Create & Edit Pages",
+    icon: <ChevronRight size={16} />,
+  },
+
+  {
+    title: "Stats",
+    description: "Manage stats for the project",
+    icon: <ChevronRight size={16} />,
+  },
+  {
+    title: "Items",
+    description: "Manage items for the project",
+    icon: <ChevronRight size={16} />,
+  },
+
   // "Characters",
   // "Quests",
+];
+
+const ANALYTICS_ENTITIES = [
+  {
+    title: "Users",
+    icon: <User size={16} />,
+    description: "Unique users who have played the game",
+    value: 145,
+    deepData: dummyAnalytics(),
+  },
+  {
+    title: "Sessions",
+    icon: <SquareSlashIcon size={16} />,
+    description: "Total number of game sessions",
+    value: 400,
+    deepData: dummyAnalytics(),
+  },
+  {
+    title: "Walkthroughs",
+    icon: <PlusCircle size={16} />,
+    description: "Total number of walkthroughs",
+    value: 670,
+    deepData: dummyAnalytics(),
+  },
+  {
+    title: "Revenue",
+    icon: <DollarSign size={16} />,
+    description: "Total revenue generated",
+    value: "$3,200",
+    deepData: dummyAnalytics(),
+  },
+  {
+    title: "Game Losses",
+    icon: <FaCarCrash size={16} />,
+    description: "Total game losses",
+    value: 212,
+    deepData: dummyAnalytics(),
+  },
+  {
+    title: "Completed Runs",
+    icon: <FaCompressArrowsAlt size={16} />,
+    description: "Total completed runs",
+    value: 98,
+    deepData: dummyAnalytics(),
+  },
 ];
 
 const EditProjectBasics = ({ project }) => {
@@ -64,22 +141,7 @@ const EditProjectBasics = ({ project }) => {
   };
 
   return (
-    <div className="flex flex-col gap-4 mb-4">
-      <div>
-        <div className="flex gap-2">
-          <Button onClick={handleSubmit}>
-            {project ? "Save Project" : "Create Project"}
-          </Button>
-          {project && (
-            <Button
-              variant="destructive"
-              onClick={() => handleDelete(project.id)}
-            >
-              Delete Project
-            </Button>
-          )}
-        </div>
-      </div>
+    <div className="flex flex-col gap-4 mb-4 max-w-[400px]">
       <div className="mb-2">
         <img className="w-40 mb-6" src={project.imageUrl} alt="project" />
         <Label>Project Name</Label>
@@ -106,11 +168,31 @@ const EditProjectBasics = ({ project }) => {
           onCheckedChange={() => setIsPublished(!isPublished)}
         />
       </div>
+
+      <Button onClick={handleSubmit}>Save Project</Button>
+
+      <div className="flex flex-col gap-4 max-w-[400px] mt-6">
+        <Label>Export Options:</Label>
+        <Button>Export to PDF</Button>
+        <Button>Export to Deck of Cards</Button>
+      </div>
+
+      <div className="flex flex-col gap-2">
+        <Label>Danger Zone</Label>
+        {project && (
+          <Button
+            variant="destructive"
+            onClick={() => handleDelete(project.id)}
+          >
+            Delete Project
+          </Button>
+        )}
+      </div>
     </div>
   );
 };
 
-const AddPageModal = ({ projectId, pagesLength }) => {
+export const AddPageModal = ({ projectId, pagesLength, trigger }) => {
   const [open, setOpen] = useState(false);
   const [name, setName] = useState("");
   const [page, setPage] = useState(pagesLength + 1);
@@ -125,7 +207,11 @@ const AddPageModal = ({ projectId, pagesLength }) => {
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <Button className="w-full max-w-[400px]">+ Add Page</Button>
+        {trigger ? (
+          trigger
+        ) : (
+          <Button className="w-full max-w-[400px]">+ Add Page</Button>
+        )}
       </DialogTrigger>
       <DialogContent>
         <DialogHeader>
@@ -140,18 +226,20 @@ const AddPageModal = ({ projectId, pagesLength }) => {
             placeholder="Name"
             className="w-full"
           />
-          <Input
-            type="number"
-            onChange={(e) => setPage(e.target.value)}
-            value={page}
-            placeholder="Number"
-            className="w-full"
-          />
+
           <Input
             type="text"
             onChange={(e) => setDescription(e.target.value)}
             value={description}
             placeholder="Description"
+            className="w-full"
+          />
+
+          <Input
+            type="number"
+            onChange={(e) => setPage(e.target.value)}
+            value={page}
+            placeholder="Number"
             className="w-full"
           />
 
@@ -239,7 +327,10 @@ const Stat = ({ stat, projectId }) => {
       <div>
         <Image src={stat.imageUrl} alt="item" width={100} height={100} />
         <div className="text-lg font-bold mt-2">{stat.name}</div>
-        <div className="text-sm">{stat.description}</div>
+        <div className="text-sm">
+          Value: <span className="text-md font-bold">{stat.value}</span>
+        </div>
+        <div className="text-sm mt-1">Effect: {stat.description}</div>
       </div>
 
       <EditStatModal stat={stat} projectId={projectId} />
@@ -253,6 +344,7 @@ const StatForm = ({ existingStat, projectId, setShowDialog }) => {
   const [description, setDescription] = useState(
     existingStat ? existingStat.description : ""
   );
+  const [value, setValue] = useState(existingStat ? existingStat.value : 0);
   const [image, setImage] = useState(null);
   const [imagePreviewUrl, setImagePreviewUrl] = useState(
     existingStat ? existingStat.imageUrl : null
@@ -271,7 +363,7 @@ const StatForm = ({ existingStat, projectId, setShowDialog }) => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    const statData = { name, description };
+    const statData = { name, description, value };
 
     if (existingStat) {
       await updateStatWithImage(existingStat, projectId, statData, image);
@@ -315,6 +407,14 @@ const StatForm = ({ existingStat, projectId, setShowDialog }) => {
         onChange={(e) => setDescription(e.target.value)}
         placeholder="Description"
       />
+      <Label>Value</Label>
+      <Input
+        type="number"
+        value={value}
+        onChange={(e) => setValue(parseInt(e.target.value))}
+        placeholder="10"
+      />
+
       <div className="flex justify-end gap-2">
         {existingStat && (
           <Button variant="destructive" type="button" onClick={handleDelete}>
@@ -377,7 +477,6 @@ const ItemForm = ({ existingItem, projectId, setShowDialog }) => {
 
   const handleDelete = async () => {
     if (existingItem) {
-      console.log({ existingItem });
       await deleteItem(existingItem.id, existingItem.imageUrl);
     }
   };
@@ -437,13 +536,130 @@ const ItemForm = ({ existingItem, projectId, setShowDialog }) => {
   );
 };
 
+const BuildView = ({ items, stats, pages, setView }) => {
+  return (
+    <div className="flex flex-col gap-4 mt-6">
+      {PROJECT_ENTITIES.map((e, i) => (
+        <Card
+          key={i}
+          onClick={() => setView(e.title.toLowerCase())}
+          className="cursor-pointer max-w-[400px]"
+        >
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-xl font-medium">{e.title}</CardTitle>
+            {e.icon}
+          </CardHeader>
+          <CardContent>
+            <p className="text-xs text-muted-foreground">{e.description}</p>
+            <div className="text-2xl font-bold mt-2 flex justify-between">
+              <div>
+                {e.title == "Items" && items?.length}
+                {e.title == "Stats" && stats?.length}
+                {e.title == "Pages" && pages?.length}
+              </div>
+            </div>
+            <div className="flex gap-2">
+              {e.title == "Items" && (
+                <div className="flex gap-2">
+                  {items.slice(0, 4).map((i) => (
+                    <Image
+                      key={i.id}
+                      src={i.imageUrl || imgPlaceholder}
+                      alt="item"
+                      width={25}
+                      height={25}
+                    />
+                  ))}
+                  {items.length > 4 && (
+                    <div className="text-sm text-muted-foreground mt-2">
+                      +{items.length - 4} more
+                    </div>
+                  )}
+                </div>
+              )}
+              {e.title == "Stats" && (
+                <div className="flex gap-2">
+                  {stats.slice(0, 4).map((i) => (
+                    <Image
+                      key={i.id}
+                      src={i.imageUrl || imgPlaceholder}
+                      alt="item"
+                      width={25}
+                      height={25}
+                    />
+                  ))}
+                  {stats.length > 4 && (
+                    <div className="text-sm text-muted-foreground mt-2">
+                      +{stats.length - 4} more
+                    </div>
+                  )}
+                </div>
+              )}
+              {e.title == "Pages" && (
+                <div className="flex gap-2">
+                  {pages.slice(0, 4).map((i) => (
+                    <Image
+                      key={i.id}
+                      src={i.img || imgPlaceholder}
+                      alt="item"
+                      width={25}
+                      height={25}
+                    />
+                  ))}
+                  {pages.length > 4 && (
+                    <div className="text-sm text-muted-foreground mt-2">
+                      +{pages.length - 4} more
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          </CardContent>
+        </Card>
+      ))}
+    </div>
+  );
+};
+
+const VanillaOption = ({ page, label, onClick }) => {
+  return (
+    <div
+      className="flex flex-col border relative cursor-pointer"
+      onClick={onClick}
+    >
+      <div className="flex  rounded items-center justify-between h-full">
+        <div className="bg-yellow-200 w-6 h-full min-h-[60px]"></div>
+        <div className="flex w-full pl-2 text-md">{label}</div>
+
+        <div className="flex gap-1 bg-yellow-200 w-24 justify-center items-center px-2 min-h-[60px] font-bold h-full">
+          <Image src={bookIcon} alt="icon" height={20} width={20} />
+          <div className="text-black">{page}</div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
 const EditProject = observer(({ params }) => {
-  const { projects, items, stats, pages, setActivePage } = MobxStore;
+  const {
+    projects,
+    items,
+    stats,
+    pages,
+    setActivePage,
+    findMissingPagesFromOptions,
+  } = MobxStore;
   const projectId = params.id;
 
   const projectFromState = projects?.find((p) => p.id === projectId);
 
   const [project, setProject] = useState(projectFromState);
+
+  const [selectedAnalysis, setSelectedAnalysis] = useState("users");
+
+  const chartData = ANALYTICS_ENTITIES.find(
+    (e) => e.title.toLowerCase() == selectedAnalysis
+  ).deepData;
 
   useEffect(() => {
     setProject(projectFromState);
@@ -456,6 +672,9 @@ const EditProject = observer(({ params }) => {
       MobxStore.fetchPages(projectId);
     }
   }, [projectId]);
+
+  const missingPages = findMissingPagesFromOptions();
+  const [viewMissingPages, setViewMissingPages] = useState(false);
 
   const [view, setView] = useState("project");
 
@@ -476,32 +695,70 @@ const EditProject = observer(({ params }) => {
           >
             <ChevronLeft /> Back
           </Button>
+          <Image
+            src={project.imageUrl}
+            alt="project"
+            width={100}
+            height={100}
+            className="mb-1 rounded"
+          />
           <TitleDescription
-            title="Project"
+            title={project.name}
             description="Manage project details"
           />
-          <EditProjectBasics project={project} />
-          <div className="flex flex-wrap gap-4">
-            {PROJECT_ENTITIES.map((e, i) => (
-              <Card
-                className="p-4 h-28 w-64 text-2xl flex justify-between cursor-pointer"
-                onClick={() => setView(e.toLowerCase())}
-                key={i}
-              >
-                <div className="flex flex-col gap-2">
-                  <div>{e}</div>
-                  <div className="text-4xl">
-                    {e == "Items" && items?.length}
-                    {e == "Stats" && stats?.length}
-                    {e == "Pages" && pages?.length}
-                  </div>
-                </div>
-                <div className="">
-                  <ChevronRight />
-                </div>
-              </Card>
-            ))}
-          </div>
+
+          <Tabs defaultValue="build">
+            <TabsList>
+              <TabsTrigger value="build">Build</TabsTrigger>
+              <TabsTrigger value="promote">Promote</TabsTrigger>
+              <TabsTrigger value="analytics">Analyse</TabsTrigger>
+              <TabsTrigger value="settings">Settings</TabsTrigger>
+            </TabsList>
+            <TabsContent value="build">
+              <BuildView
+                items={items}
+                stats={stats}
+                pages={pages}
+                setView={setView}
+              />
+            </TabsContent>
+            <TabsContent value="promote"></TabsContent>
+            <TabsContent value="analytics">
+              <div className="mt-6 flex flex-wrap gap-2">
+                {ANALYTICS_ENTITIES.map((e, i) => (
+                  <Card
+                    key={i}
+                    className={`w-64 cursor-pointer ${
+                      e.title.toLowerCase() == selectedAnalysis
+                        ? "bg-primary text-primary-foreground"
+                        : "bg-card text-card-foreground"
+                    }`}
+                    onClick={() => setSelectedAnalysis(e.title.toLowerCase())}
+                  >
+                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                      <CardTitle className="text-sm font-medium">
+                        {e.title}
+                      </CardTitle>
+                      {e.icon}
+                    </CardHeader>
+                    <CardContent>
+                      <div className="text-2xl font-bold">{e.value}</div>
+                      <p className="text-xs text-muted-foreground">
+                        +20.1% from last month
+                      </p>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+              <div className="mt-4">
+                <AnalysisCharts data={chartData} />
+              </div>
+            </TabsContent>
+
+            <TabsContent value="settings">
+              <EditProjectBasics project={project} />
+            </TabsContent>
+          </Tabs>
         </div>
       )}
 
@@ -522,21 +779,77 @@ const EditProject = observer(({ params }) => {
           </Button>
           <TitleDescription title="Pages" description="Create & Edit Pages" />
           <div className="flex flex-col gap-2 mb-4">
+            <Card className="p-2 flex flex-col gap-2 bg-yellow-100 max-w-[400px]">
+              <div
+                className="font-bold text-sm text-yellow-700 flex justify-between items-center cursor-pointer"
+                onClick={() => setViewMissingPages(!viewMissingPages)}
+              >
+                <div>Some Pages are missing</div>
+                <div className="gap-1 flex">
+                  {viewMissingPages ? "Hide" : "View"}
+                  {viewMissingPages ? <ChevronUp /> : <ChevronDown />}
+                </div>
+              </div>
+              {viewMissingPages && (
+                <div className="flex flex-col gap-2">
+                  {missingPages?.map((mp, i) => (
+                    <Card
+                      key={i}
+                      className="p-4 w-full flex items-center justify-between"
+                    >
+                      <VanillaOption
+                        page={mp.missingPage}
+                        label={mp.foundIn.option}
+                        onClick={() => {
+                          setView("page-details");
+                          setActivePage(mp.foundIn.page);
+                        }}
+                      />
+                      <div className="w-[75px]">
+                        <AddPageModal
+                          projectId={projectId}
+                          pagesLength={mp.missingPage - 1}
+                          trigger={
+                            <div className="cursor-pointer text-blue-400 flex justify-center items-center">
+                              + Add
+                            </div>
+                          }
+                        />
+                      </div>
+                    </Card>
+                  ))}
+                </div>
+              )}
+            </Card>
+
             {pages
               ?.slice()
               .sort((a, b) => parseInt(a.page) - parseInt(b.page))
               .map((page, i) => (
                 <Card
                   key={i}
-                  className="p-4 w-[400px] cursor-pointer"
+                  className="p-4 w-[400px] cursor-pointer flex items-center justify-between"
                   onClick={() => {
                     setView("page-details");
                     setActivePage(page.page);
                   }}
                 >
-                  <div className="text-lg font-bold">
-                    <span className="text-xl">{page.page}.</span> {page.name}
+                  <div>
+                    <div className="text-lg font-bold">
+                      <span className="text-xl">{page.page}.</span> {page.name}
+                    </div>
+                    <div className="text-sm">
+                      Options: {page.options?.length || 0}
+                    </div>
                   </div>
+
+                  <Image
+                    src={page.img || imgPlaceholder}
+                    alt="page"
+                    width={50}
+                    height={50}
+                    className="ml-2"
+                  />
                 </Card>
               ))}
           </div>
