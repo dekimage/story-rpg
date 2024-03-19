@@ -93,7 +93,7 @@ const CreateListDialog = () => {
 };
 
 const ReusableLayout = observer(({ children }) => {
-  const { user, lists, logout } = MobxStore;
+  const { user, logout } = MobxStore;
 
   const pathname = usePathname();
   const isRoute = (route) => {
@@ -130,39 +130,39 @@ const ReusableLayout = observer(({ children }) => {
                 {
                   title: "Projects",
                   icon: BookOpen,
-                  variant: isRoute("/"),
+                  variant: isRoute("/project"),
                   href: "/",
                 },
                 {
-                  title: "Games",
+                  title: "Play",
                   icon: Gamepad2,
-                  variant: isRoute("Games"),
-                  href: "/games",
+                  variant: isRoute("Play"),
+                  href: "play",
                 },
                 {
                   title: "Marketplace",
                   icon: Store,
                   variant: isRoute("Marketplace"),
-                  href: "/marketplace",
+                  href: "marketplace",
                 },
                 {
-                  title: "Assets",
+                  title: "Storage",
                   icon: ImagePlus,
-                  variant: isRoute("Analytics"),
-                  href: "/analytics",
+                  variant: isRoute("Storage"),
+                  href: "storage",
                 },
                 {
                   title: "Profile",
                   icon: User,
                   variant: isRoute("Profile"),
-                  href: "/profile",
+                  href: "profile",
                 },
-                {
-                  title: "Settings",
-                  icon: Settings,
-                  variant: isRoute("Settings"),
-                  href: "/settings",
-                },
+                // {
+                //   title: "Settings",
+                //   icon: Settings,
+                //   variant: isRoute("Settings"),
+                //   href: "/settings",
+                // },
               ]}
             />
             <Separator />

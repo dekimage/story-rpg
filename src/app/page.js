@@ -19,6 +19,7 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import Image from "next/image";
+// import { Progress } from "@/components/ui/progress";
 
 const dummyImages = [
   "https://cdn.midjourney.com/a70065b2-9c69-4189-a6fe-ae6ae6f449eb/0_0.png",
@@ -31,7 +32,6 @@ const CreateProject = ({ trigger, showDialog, setShowDialog }) => {
   const [image, setImage] = useState(null);
   const [uploading, setUploading] = useState(false);
   const { createProject } = MobxStore;
-  const [uploadProgress, setUploadProgress] = useState(0);
 
   const [imagePreviewUrl, setImagePreviewUrl] = useState(null);
   const handleImageChange = (e) => {
@@ -127,6 +127,50 @@ const CreateProject = ({ trigger, showDialog, setShowDialog }) => {
   );
 };
 
+export const ProjectCard = ({
+  project,
+  isStarted = false,
+  isMyProject = true,
+}) => {
+  return (
+    <Card className="w-[200px] h-[320px] relative flex flex-col items-between justify-between">
+      <div className="absolute top-[5px] right-[5px]">
+        {project.isPublished ? (
+          <Badge className="w-fit bg-green-400">Published</Badge>
+        ) : (
+          <Badge className="w-fit bg-yellow-400">In Progress</Badge>
+        )}
+      </div>
+      <Image
+        src={project.imageUrl || imgPlaceholder}
+        alt="project"
+        width={200}
+        height={200}
+        className="h-[200px] w-full object-cover rounded-lg"
+      />
+      {/* {isStarted && <Progress value={33} />} */}
+      <div className="flex justify-center flex-col p-2">
+        <div>{project.name}</div>
+        <div className="text-xs text-gray-400">{project.description}</div>
+        <div className="flex gap-2 pt-6">
+          <Link href={`/project/play/${project.id}`} className="w-full">
+            <Button className="p-2 h-8 w-full">
+              {isStarted ? "Continue" : "Start"}
+            </Button>
+          </Link>
+          {isMyProject && (
+            <Link href={`/project/edit/${project.id}`}>
+              <Button className="p-2 px-4 h-8" variant="outline">
+                Edit
+              </Button>
+            </Link>
+          )}
+        </div>
+      </div>
+    </Card>
+  );
+};
+
 const StoryRpgPage = observer(() => {
   const { projects } = MobxStore;
   const [showDialog, setShowDialog] = useState(false);
@@ -140,37 +184,7 @@ const StoryRpgPage = observer(() => {
 
       <div className="flex flex-wrap gap-4">
         {projects.map((project, index) => (
-          <Card key={index} className="max-w-[200px] relative">
-            <div className="absolute top-[5px] right-[5px]">
-              {project.isPublished ? (
-                <Badge className="w-fit bg-green-400">Published</Badge>
-              ) : (
-                <Badge className="w-fit bg-yellow-400">In Progress</Badge>
-              )}
-            </div>
-            <Image
-              src={project.imageUrl || imgPlaceholder}
-              alt="project"
-              width={200}
-              height={200}
-            />
-            <div className="flex justify-center flex-col items-between p-2">
-              <div>{project.name}</div>
-              <div className="text-xs text-gray-400">{project.description}</div>
-              <div className="flex gap-2 pt-6">
-                <Link href={`/project/play/${project.id}`}>
-                  <Button className="p-2 px-4 h-8" variant="outline">
-                    Play
-                  </Button>
-                </Link>
-                <Link href={`/project/edit/${project.id}`}>
-                  <Button className="p-2 px-4 h-8" variant="outline">
-                    Edit
-                  </Button>
-                </Link>
-              </div>
-            </div>
-          </Card>
+          <ProjectCard project={project} key={index} />
         ))}
         <CreateProject
           showDialog={showDialog}

@@ -624,7 +624,7 @@ const BuildView = ({ items, stats, pages, setView }) => {
 const VanillaOption = ({ page, label, onClick }) => {
   return (
     <div
-      className="flex flex-col border relative cursor-pointer"
+      className="flex flex-col border relative cursor-pointer w-full"
       onClick={onClick}
     >
       <div className="flex  rounded items-center justify-between h-full">
@@ -710,7 +710,7 @@ const EditProject = observer(({ params }) => {
           <Tabs defaultValue="build">
             <TabsList>
               <TabsTrigger value="build">Build</TabsTrigger>
-              <TabsTrigger value="promote">Promote</TabsTrigger>
+              {/* <TabsTrigger value="promote">Promote</TabsTrigger> */}
               <TabsTrigger value="analytics">Analyse</TabsTrigger>
               <TabsTrigger value="settings">Settings</TabsTrigger>
             </TabsList>
@@ -722,7 +722,7 @@ const EditProject = observer(({ params }) => {
                 setView={setView}
               />
             </TabsContent>
-            <TabsContent value="promote"></TabsContent>
+            {/* <TabsContent value="promote"></TabsContent> */}
             <TabsContent value="analytics">
               <div className="mt-6 flex flex-wrap gap-2">
                 {ANALYTICS_ENTITIES.map((e, i) => (
@@ -779,48 +779,50 @@ const EditProject = observer(({ params }) => {
           </Button>
           <TitleDescription title="Pages" description="Create & Edit Pages" />
           <div className="flex flex-col gap-2 mb-4">
-            <Card className="p-2 flex flex-col gap-2 bg-yellow-100 max-w-[400px]">
-              <div
-                className="font-bold text-sm text-yellow-700 flex justify-between items-center cursor-pointer"
-                onClick={() => setViewMissingPages(!viewMissingPages)}
-              >
-                <div>Some Pages are missing</div>
-                <div className="gap-1 flex">
-                  {viewMissingPages ? "Hide" : "View"}
-                  {viewMissingPages ? <ChevronUp /> : <ChevronDown />}
+            {missingPages.length > 0 && (
+              <Card className="p-2 flex flex-col gap-2 bg-yellow-100 max-w-[400px]">
+                <div
+                  className="font-bold text-sm text-yellow-700 flex justify-between items-center cursor-pointer"
+                  onClick={() => setViewMissingPages(!viewMissingPages)}
+                >
+                  <div>Some Pages are missing</div>
+                  <div className="gap-1 flex">
+                    {viewMissingPages ? "Hide" : "View"}
+                    {viewMissingPages ? <ChevronUp /> : <ChevronDown />}
+                  </div>
                 </div>
-              </div>
-              {viewMissingPages && (
-                <div className="flex flex-col gap-2">
-                  {missingPages?.map((mp, i) => (
-                    <Card
-                      key={i}
-                      className="p-4 w-full flex items-center justify-between"
-                    >
-                      <VanillaOption
-                        page={mp.missingPage}
-                        label={mp.foundIn.option}
-                        onClick={() => {
-                          setView("page-details");
-                          setActivePage(mp.foundIn.page);
-                        }}
-                      />
-                      <div className="w-[75px]">
-                        <AddPageModal
-                          projectId={projectId}
-                          pagesLength={mp.missingPage - 1}
-                          trigger={
-                            <div className="cursor-pointer text-blue-400 flex justify-center items-center">
-                              + Add
-                            </div>
-                          }
+                {viewMissingPages && (
+                  <div className="flex flex-col gap-2">
+                    {missingPages?.map((mp, i) => (
+                      <Card
+                        key={i}
+                        className="p-4 w-full flex items-center justify-between"
+                      >
+                        <VanillaOption
+                          page={mp.missingPage}
+                          label={mp.foundIn.option}
+                          onClick={() => {
+                            setView("page-details");
+                            setActivePage(mp.foundIn.page);
+                          }}
                         />
-                      </div>
-                    </Card>
-                  ))}
-                </div>
-              )}
-            </Card>
+                        <div className="w-[75px]">
+                          <AddPageModal
+                            projectId={projectId}
+                            pagesLength={mp.missingPage - 1}
+                            trigger={
+                              <div className="cursor-pointer text-blue-400 flex justify-center items-center">
+                                + Add
+                              </div>
+                            }
+                          />
+                        </div>
+                      </Card>
+                    ))}
+                  </div>
+                )}
+              </Card>
+            )}
 
             {pages
               ?.slice()
