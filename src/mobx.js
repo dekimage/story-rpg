@@ -1,6 +1,6 @@
 import { makeAutoObservable, runInAction } from "mobx";
 
-import { auth, db } from "./firebase";
+import { auth, db, functions } from "./firebase";
 import {
   onAuthStateChanged,
   signInAnonymously,
@@ -38,6 +38,7 @@ import {
 } from "firebase/storage";
 
 import { rooms } from "./data";
+import { httpsCallable } from "firebase/functions";
 
 const DEFAULT_USER = {
   isCreator: true,
@@ -109,6 +110,13 @@ class Store {
     this.checkPageNumberExists = this.checkPageNumberExists.bind(this);
     this.findMissingPagesFromOptions =
       this.findMissingPagesFromOptions.bind(this);
+    this.setLoading = this.setLoading.bind(this);
+    this.magicGeneratePage = this.magicGeneratePage.bind(this);
+    this.updatePageMobx = this.updatePageMobx.bind(this);
+    this.deleteOptionFromPage = this.deleteOptionFromPage.bind(this);
+    this.deletePage = this.deletePage.bind(this);
+    this.uploadProjectAvatar = this.uploadProjectAvatar.bind(this);
+    this.removeProjectAvatar = this.removeProjectAvatar.bind(this);
   }
 
   initializeAuth() {
@@ -129,6 +137,62 @@ class Store {
         });
       }
     });
+  }
+
+  setLoading(isLoading) {
+    this.loading = isLoading;
+  }
+
+  // FIREBASE FUNCTIONS / GENERATE AI
+
+  updatePageMobx = async (pageId, changes) => {
+    runInAction(() => {
+      const index = this.pages.findIndex((page) => page.id === pageId);
+      if (index !== -1) {
+        this.pages[index] = { ...this.pages[index], ...changes };
+      }
+      this.activePage = { ...this.activePage, ...changes };
+      this.loading = false;
+    });
+  };
+
+  async magicGeneratePage(projectId, pageId, prompt, withImage, optionsCount) {
+    const magicCreatePage = httpsCallable(functions, "magicCreatePage");
+    try {
+      const result = await magicCreatePage({
+        projectId,
+        pageId,
+        prompt: prompt.length > 500 ? prompt.slice(0, 500) : prompt,
+        withImage,
+        optionsCount: optionsCount > 3 ? 3 : optionsCount,
+        lastPage: this.activePage.page,
+      });
+
+      console.log("GPT Response:", result.data.gptResponse);
+      console.log("Image Response:", result.data.imageUrl);
+      const structuredDataString =
+        result.data.gptResponse.choices[0].message.content;
+      const structuredDataObject = JSON.parse(structuredDataString);
+
+      const { name, description, options } = structuredDataObject;
+
+      const pageRef = doc(db, "pages", pageId);
+      await updateDoc(pageRef, {
+        name,
+        description,
+        options,
+        img: result.data.imageUrl,
+      });
+
+      this.updatePageMobx(pageId, {
+        name,
+        description,
+        options,
+        img: result.data.imageUrl,
+      });
+    } catch (error) {
+      console.error("Error generating page:", error);
+    }
   }
 
   // Pages
@@ -252,16 +316,73 @@ class Store {
       const pageRef = doc(db, "pages", pageId);
       await updateDoc(pageRef, updatesDate);
 
+      this.updatePageMobx(pageId, updatesDate);
+    } catch (error) {
+      console.error("Error updating page:", error);
+      this.loading = false;
+    }
+  }
+
+  async deletePage() {
+    this.loading = true;
+    try {
+      // Assuming activePage includes projectId, pageId, imgFilename
+      const { projectId, imgFilename, id } = this.activePage;
+
+      const pageId = id;
+
+      // Delete the image from Firebase Storage if an image filename is present
+      if (imgFilename) {
+        const storagePath = `projects/${projectId}/pages/${pageId}/${imgFilename}`;
+        const imageRef = storageRef(getStorage(), storagePath);
+        await deleteObject(imageRef); // Make sure to import deleteObject from "firebase/storage"
+      }
+
+      // Delete the Firestore document
+      const pageRef = doc(db, "pages", pageId);
+      await deleteDoc(pageRef);
+
       runInAction(() => {
-        const index = this.pages.findIndex((page) => page.id === pageId);
-        if (index !== -1) {
-          this.pages[index] = { ...this.pages[index], ...updatesDate };
-        }
-        this.activePage = { ...this.activePage, ...updatesDate };
+        // Remove the page from your MobX state
+        this.pages = this.pages.filter((page) => page.id !== pageId);
+        // Reset or update activePage as necessary
+        this.activePage = pages[0];
         this.loading = false;
       });
     } catch (error) {
-      console.error("Error updating page:", error);
+      console.error("Error deleting page:", error);
+      this.loading = false;
+    }
+  }
+
+  async deleteOptionFromPage(pageId, optionIndex) {
+    this.loading = true;
+    try {
+      // Remove the option from the local state array
+      const newOptions = [
+        ...this.pages.find((page) => page.id === pageId).options,
+      ];
+      newOptions.splice(optionIndex, 1); // This removes the item at `optionIndex`
+
+      // Update the document in Firestore with the new array
+      const pageRef = doc(db, "pages", pageId);
+      await updateDoc(pageRef, {
+        options: newOptions,
+      });
+
+      runInAction(() => {
+        const index = this.pages.findIndex((page) => page.id === pageId);
+        if (index !== -1) {
+          this.pages[index].options = newOptions;
+        }
+
+        if (this.activePage.id === pageId) {
+          this.activePage.options = newOptions;
+        }
+        this.loading = false;
+      });
+    } catch (error) {
+      console.error("Error deleting option from page:", error);
       this.loading = false;
     }
   }
@@ -588,6 +709,79 @@ class Store {
     }
   }
 
+  async uploadProjectAvatar(projectId, imageFile) {
+    this.loading = true;
+    try {
+      if (!imageFile) {
+        throw new Error("No image file provided.");
+      }
+
+      const storage = getStorage();
+      const imageFileName = encodeURIComponent(imageFile.name);
+      const storagePath = `projects/${projectId}/avatar/${imageFileName}`;
+      const imageRef = storageRef(storage, storagePath);
+
+      const uploadResult = await uploadBytes(imageRef, imageFile);
+      const imageUrl = await getDownloadURL(uploadResult.ref);
+
+      const projectRef = doc(db, "projects", projectId);
+      await updateDoc(projectRef, { imageUrl, imgFileName: imageFileName });
+
+      runInAction(() => {
+        const projectIndex = this.projects.findIndex(
+          (proj) => proj.id === projectId
+        );
+        if (projectIndex !== -1) {
+          this.projects[projectIndex] = {
+            ...this.projects[projectIndex],
+            imageUrl: imageUrl,
+            imgFileName: imageFileName,
+          };
+        }
+        this.loading = false;
+      });
+    } catch (error) {
+      console.error("Error uploading project avatar:", error);
+      this.loading = false;
+    }
+  }
+
+  async removeProjectAvatar(projectId, imgFilename) {
+    this.loading = true;
+    try {
+      const storage = getStorage();
+
+      const storagePath = `projects/${projectId}/avatar/${imgFilename}`;
+
+      const imageRef = storageRef(storage, storagePath);
+
+      await deleteObject(imageRef);
+
+      const projectRef = doc(db, "projects", projectId);
+      await updateDoc(projectRef, {
+        imageUrl: null,
+        imgFileName: null,
+      });
+
+      runInAction(() => {
+        const projectIndex = this.projects.findIndex(
+          (proj) => proj.id === projectId
+        );
+        if (projectIndex !== -1) {
+          this.projects[projectIndex] = {
+            ...this.projects[projectIndex],
+            imageUrl: null,
+            imageFileName: null,
+          };
+        }
+        this.loading = false;
+      });
+    } catch (error) {
+      console.error("Error removing project avatar:", error);
+      this.loading = false;
+    }
+  }
+
   async getProjects() {
     if (!this.user.uid) return;
 
@@ -671,7 +865,6 @@ class Store {
 
   addItemToInventory = (itemId) => {
     const itemToAdd = this.items.find((item) => item.id === itemId);
-
     if (itemToAdd) {
       runInAction(() => {
         this.inventory.push(itemToAdd);

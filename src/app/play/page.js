@@ -1,12 +1,12 @@
 "use client";
 import { TitleDescription } from "@/reusable-ui/TitleDescription";
-import { ProjectCard } from "../page";
+import { ProjectCard, ProjectDetailsDialog } from "../page";
 import MobxStore from "@/mobx";
 import { observer } from "mobx-react";
 
 const PlayPage = observer(() => {
   const { projects } = MobxStore;
-  console.log({ projects });
+
   return (
     <div className="m-4 sm:m-8 flex flex-col gap-6">
       <TitleDescription

@@ -39,6 +39,7 @@
     "embla-carousel-react": "^8.0.0-rc21",
     "emoji-picker-react": "^4.6.0",
     "firebase": "^10.7.1",
+    "firebase-functions": "^4.8.1",
     "local-storage": "^2.0.0",
     "lucide-react": "^0.284.0",
     "mobx": "^6.12.0",

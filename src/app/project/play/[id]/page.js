@@ -1,5 +1,5 @@
 "use client";
-import { ChevronDown, ChevronLeft, ChevronUp } from "lucide-react";
+import { ChevronDown, ChevronLeft, ChevronUp, Trash2 } from "lucide-react";
 
 import bookIcon from "../../../../assets/bookIcon.png";
 import lockIcon from "../../../../assets/lockIcon.png";
@@ -8,20 +8,29 @@ import imgPlaceholder from "@/assets/placeholder.png";
 import Image from "next/image";
 import MobxStore from "../../../../mobx";
 import { observer } from "mobx-react";
-import { Card } from "@/components/ui/card";
+import { Card, CardDescription, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { useState } from "react";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
-import { Dialog, DialogContent, DialogTrigger } from "@/components/ui/dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
 import { Combobox } from "@/StoryComponents/ComboBox";
 import { useEffect } from "react";
 import { useParams, usePathname, useRouter } from "next/navigation";
 import { toJS } from "mobx";
 import { useRef } from "react";
 import { AddPageModal } from "../../edit/[id]/page";
+import { Label } from "@/components/ui/label";
 
 const QuestionHelpBox = ({ children }) => {
   return (
@@ -53,6 +62,13 @@ const Stats = ({ stats }) => (
         key={index}
         className="min-w-[100px] flex flex-col gap-1 items-center justify-center p-2 border  rounded-lg shadow"
       >
+        <Image
+          className="rounded"
+          src={stat.imageUrl}
+          alt="stat"
+          height={50}
+          width={50}
+        />
         <div className="text-md font-semibold">{stat.name}</div>
         <div className="text-4xl">{stat.value}</div>
       </div>
@@ -75,6 +91,7 @@ const Option = observer(
     index,
     isEditMode,
     updateProperty,
+    onOptionRemove,
   }) => {
     const {
       handleOptionClick,
@@ -256,11 +273,21 @@ const Option = observer(
         </div>
 
         {!pageExists && isEditMode && (
-          <div className="flex items-center font-sm p-2">
-            <div className="text-yellow-500">
+          <div className="flex items-center justify-between p-2">
+            <div className="text-yellow-500 text-xs">
               Warning: page {option.page} does not exist
             </div>
-            <AddPageModal projectId={projectId} pagesLength={pages.length} />
+            <div className="w-fit">
+              <AddPageModal
+                projectId={projectId}
+                pagesLength={pages.length}
+                trigger={
+                  <div className="cursor-pointer text-sm text-blue-400 flex justify-center items-center">
+                    + Add Page
+                  </div>
+                }
+              />
+            </div>
           </div>
         )}
 
@@ -543,13 +570,31 @@ const Option = observer(
             )}
           </div>
         )}
+
+        {isEditMode && (
+          <div className="text-xs text-red-400 p-2 flex justify-end">
+            <div
+              className="flex gap-1 cursor-pointer"
+              onClick={() => onOptionRemove(index, option)}
+            >
+              <Trash2 size={14} /> Delete
+            </div>
+          </div>
+        )}
       </div>
     );
   }
 );
 
-const Options = ({ options, setOptions, isEditMode, addOption }) => {
+const Options = ({
+  options,
+  setOptions,
+  isEditMode,
+  addOption,
+  onOptionRemove,
+}) => {
   const { isOptionUnlocked } = MobxStore;
+
   function updateNestedProperty(obj, path, value) {
     if (typeof path === "string") path = path.split(".");
     for (var i = 0; i < path.length - 1; i++) {
@@ -557,20 +602,6 @@ const Options = ({ options, setOptions, isEditMode, addOption }) => {
     }
     obj[path[path.length - 1]] = value;
   }
-  // const updateOptionProperty = (index, propertyPath, value) => {
-  //   const updatedOptions = options.map((option, optionIndex) => {
-  //     if (optionIndex === index) {
-  //       // Clone the option to maintain immutability
-  //       const updatedOption = { ...option };
-  //       // Update the property using the utility function
-  //       updateNestedProperty(updatedOption, propertyPath, value);
-  //       return updatedOption;
-  //     }
-  //     return option; // Return other options unchanged
-  //   });
-
-  //   setOptions(updatedOptions); // Update the state with the new options array
-  // };
 
   const updateOptionProperties = (index, updatesOrProperty, value) => {
     // Convert single update to array format if the second argument is a string (property path)
@@ -623,6 +654,7 @@ const Options = ({ options, setOptions, isEditMode, addOption }) => {
             usageCount={usageCount}
             remainingUses={remainingUses}
             isEditMode={isEditMode}
+            onOptionRemove={onOptionRemove}
             updateProperty={(propertyPath, value) =>
               updateOptionProperties(index, propertyPath, value)
             }
@@ -641,9 +673,167 @@ const Options = ({ options, setOptions, isEditMode, addOption }) => {
   );
 };
 
+const MagicGenerateSettings = observer(({ setIsEditMode, closeDialog }) => {
+  const params = useParams();
+  const projectId = params.id;
+  const [prompt, setPrompt] = useState("");
+  const [withImage, setWithImage] = useState(true);
+  const [optionsCount, setOptionsCount] = useState(2);
+  const { loading, setLoading, magicGeneratePage, activePage } = MobxStore;
+
+  const onGenerate = async () => {
+    if (loading) return;
+    setLoading(true);
+    await magicGeneratePage(
+      projectId,
+      activePage.id,
+      prompt,
+      withImage,
+      optionsCount
+    );
+    setWithImage(false);
+    setPrompt("");
+    setOptionsCount(2);
+    setLoading(false);
+    closeDialog();
+    setIsEditMode(false);
+  };
+  return (
+    <div className="flex flex-col gap-2">
+      <Card className="p-4 flex flex-col gap-4">
+        <CardTitle>1. Fill Missing Parts</CardTitle>
+        <CardDescription>
+          Magically generate only missing parts from this room using the context
+          automatically.
+        </CardDescription>
+        <Button className="w-full" onClick={() => onGenerate()}>
+          Generate Missing Details 💫
+        </Button>
+      </Card>
+
+      <div className="relative">
+        <div className="absolute inset-0 flex items-center">
+          <span className="w-full border-t" />
+        </div>
+        <div className="relative flex justify-center text-xs uppercase">
+          <span className="bg-background px-2 text-muted-foreground">Or</span>
+        </div>
+      </div>
+
+      <Card className="p-4 flex flex-col gap-4">
+        <CardTitle>2. Generate New Page</CardTitle>
+        <CardDescription>
+          Magically generate fresh new page using the context automatically.
+          Warning, this will delete all existing content on this page.
+        </CardDescription>
+        <Button className="w-full" onClick={() => onGenerate()}>
+          Generate New Page ✨
+        </Button>
+      </Card>
+
+      <div className="relative">
+        <div className="absolute inset-0 flex items-center">
+          <span className="w-full border-t" />
+        </div>
+        <div className="relative flex justify-center text-xs uppercase">
+          <span className="bg-background px-2 text-muted-foreground">Or</span>
+        </div>
+      </div>
+
+      <Card className="p-4 flex flex-col gap-4">
+        <CardTitle>3. Manually Generate Page</CardTitle>
+        <CardDescription>
+          Craft your own custom prompt and settings to generate a new page.
+        </CardDescription>
+        <Label>Custom Prompt</Label>
+        <Textarea
+          onChange={(e) => setPrompt(e.target.value)}
+          value={prompt}
+          placeholder="Prompt"
+          className="w-full"
+        />
+        <Label>Number of Options</Label>
+        <Input
+          type="number"
+          onChange={(e) => setOptionsCount(e.target.value)}
+          value={optionsCount}
+          placeholder="2"
+          className="w-full"
+        />
+        <div className="flex justify-between">
+          <Label>Generate Image</Label>
+          <Switch
+            checked={withImage}
+            onCheckedChange={() => setWithImage(!withImage)}
+          />
+        </div>
+
+        <Button className="w-full" onClick={() => onGenerate()}>
+          {loading ? "Generating..." : "Generate Custom Page 🔮"}
+        </Button>
+      </Card>
+    </div>
+  );
+});
+
+const AiGenerateModal = observer(({ setIsEditMode }) => {
+  const [open, setOpen] = useState(false);
+
+  return (
+    <Dialog open={open} onOpenChange={setOpen}>
+      <DialogTrigger>
+        <Button variant="outline" type="button">
+          Generate (AI)
+        </Button>
+      </DialogTrigger>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Magic Page</DialogTitle>
+          <DialogDescription>Generate Page with AI</DialogDescription>
+        </DialogHeader>
+        <MagicGenerateSettings
+          setIsEditMode={setIsEditMode}
+          closeDialog={() => setOpen(false)}
+        />
+      </DialogContent>
+    </Dialog>
+  );
+});
+
+const DeletePageModal = observer(({ deletePage }) => {
+  const [open, setOpen] = useState(false);
+
+  return (
+    <Dialog open={open} onOpenChange={setOpen}>
+      <DialogTrigger>
+        <Button variant="outline" className="w-fit">
+          Delete Page
+        </Button>
+      </DialogTrigger>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Delete Page?</DialogTitle>
+          <DialogDescription>
+            Are you sure you want to delete this page?
+          </DialogDescription>
+        </DialogHeader>
+        <DialogFooter>
+          <Button variant="outline" onClick={() => setOpen(false)}>
+            Cancel
+          </Button>
+          <Button variant="destructive" onClick={deletePage}>
+            Delete
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+});
+
 const StoryPage = observer(({ onBack }) => {
   const isEditPage = usePathname().includes("edit");
-  const { activePage, inventory, stats } = MobxStore;
+  const { activePage, inventory, stats, deleteOptionFromPage, pages } =
+    MobxStore;
 
   const [isEditMode, setIsEditMode] = useState(isEditPage);
 
@@ -665,7 +855,7 @@ const StoryPage = observer(({ onBack }) => {
   const prevActivePageRef = useRef({ page, name, description, options });
 
   useEffect(() => {
-    if (isEditMode) return;
+    // if (isEditMode) return;
 
     const {
       page: prevPage,
@@ -684,17 +874,40 @@ const StoryPage = observer(({ onBack }) => {
   }, [page, name, description, options, isEditMode]);
 
   const savePage = async () => {
+    const updatedOptions = editOptions.map((option) => {
+      let optionWithoutLocalKey = { ...option };
+      delete optionWithoutLocalKey.local;
+      return optionWithoutLocalKey;
+    });
+
     await MobxStore.updatePage(activePage.id, {
       page: editPage,
       name: editName,
       description: editDescription,
-      options: editOptions,
+      // options: editOptions,
+      options: updatedOptions,
     });
     setIsEditMode(false);
   };
 
   const addOption = () => {
-    setEditOptions([...editOptions, { label: "", page: 0 }]);
+    setEditOptions([
+      ...editOptions,
+      { label: "", page: pages.length + 1, local: true },
+    ]);
+  };
+
+  const removeOption = (index) => {
+    const updatedOptions = editOptions.filter((_, i) => i !== index);
+    setEditOptions(updatedOptions);
+  };
+
+  const onOptionRemove = (index, option) => {
+    if (option.local) {
+      removeOption(index);
+    } else {
+      deleteOptionFromPage(activePage.id, index);
+    }
   };
 
   useEffect(() => {
@@ -730,6 +943,11 @@ const StoryPage = observer(({ onBack }) => {
     setImagePreviewUrl(null);
   };
 
+  const deletePage = async () => {
+    await MobxStore.deletePage();
+    onBack();
+  };
+
   if (!activePage) return <div>Loading...</div>;
 
   return (
@@ -748,10 +966,13 @@ const StoryPage = observer(({ onBack }) => {
             Back
           </Button>
         </div>
+
         <div>
           {isEditPage &&
             (isEditMode ? (
               <div className="flex gap-2">
+                <DeletePageModal deletePage={deletePage} />
+                <AiGenerateModal setIsEditMode={setIsEditMode} />
                 <Button
                   className="w-fit"
                   variant="outline"
@@ -811,6 +1032,7 @@ const StoryPage = observer(({ onBack }) => {
               setOptions={setEditOptions}
               isEditMode={isEditMode}
               addOption={addOption}
+              onOptionRemove={onOptionRemove}
             />
           </div>
 
@@ -855,6 +1077,7 @@ const StoryPage = observer(({ onBack }) => {
                     Upload Image
                   </Button>
                 )}
+
                 {isEditMode && (
                   <Input
                     type="file"

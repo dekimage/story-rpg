@@ -108,13 +108,45 @@ const ANALYTICS_ENTITIES = [
   },
 ];
 
-const EditProjectBasics = ({ project }) => {
+const EditProjectBasics = observer(({ project }) => {
   const [projectName, setProjectName] = useState(project?.name || "");
   const [projectDescription, setProjectDescription] = useState(
     project?.description || ""
   );
   const [isPublished, setIsPublished] = useState(project?.isPublished || false);
   const { createProject, updateProject, deleteProject } = MobxStore;
+
+  const [avatarFile, setAvatarFile] = useState(null);
+  const [avatarPreviewUrl, setAvatarPreviewUrl] = useState(
+    project?.imageUrl || ""
+  );
+
+  const [isUploading, setIsUploading] = useState(false);
+  const [uploadButtonDisabled, setUploadButtonDisabled] = useState(true);
+
+  const handleAvatarChange = (e) => {
+    const file = e.target.files[0];
+    if (file) {
+      setAvatarFile(file);
+      setUploadButtonDisabled(false); // Enable the upload button
+
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setAvatarPreviewUrl(reader.result);
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+  const uploadAvatar = async () => {
+    await MobxStore.uploadProjectAvatar(project.id, avatarFile);
+    // Reset the avatar file state after upload
+    setAvatarFile(null);
+  };
+
+  const removeAvatar = async () => {
+    await MobxStore.removeProjectAvatar(project.id, project.imgFileName);
+    setAvatarPreviewUrl(""); // Reset the preview URL
+  };
 
   useEffect(() => {
     setProjectName(project?.name || "");
@@ -143,15 +175,49 @@ const EditProjectBasics = ({ project }) => {
   return (
     <div className="flex flex-col gap-4 mb-4 max-w-[400px]">
       <div className="mb-2">
-        <img className="w-40 mb-6" src={project.imageUrl} alt="project" />
-        <Label>Project Name</Label>
-        <Input
-          value={projectName}
-          className="w-fit"
-          onChange={(e) => setProjectName(e.target.value)}
-          placeholder="Project Name"
-        />
+        <div className="mb-4">
+          <Image
+            src={avatarPreviewUrl || imgPlaceholder}
+            alt="Avatar preview"
+            width={150}
+            height={150}
+            className="mb-4"
+          />
+
+          {isUploading && (
+            <>
+              <Input type="file" onChange={handleAvatarChange} className="" />
+              <Button
+                onClick={() => {
+                  uploadAvatar();
+                  setIsUploading(false); // Reset uploading state after initiating upload
+                  setUploadButtonDisabled(true); // Disable the button again
+                }}
+                variant="outline"
+                disabled={uploadButtonDisabled}
+              >
+                Upload Image
+              </Button>
+            </>
+          )}
+
+          {!isUploading &&
+            (project?.imageUrl ? (
+              <Button variant="outline" onClick={removeAvatar} className="">
+                Remove Image
+              </Button>
+            ) : (
+              <Button
+                onClick={() => setIsUploading(true)}
+                variant="outline"
+                disabled={isUploading}
+              >
+                Add Image
+              </Button>
+            ))}
+        </div>
       </div>
+
       <div className="mb-2">
         <Label>Description</Label>
         <Textarea
@@ -190,12 +256,17 @@ const EditProjectBasics = ({ project }) => {
       </div>
     </div>
   );
-};
+});
 
-export const AddPageModal = ({ projectId, pagesLength, trigger }) => {
+export const AddPageModal = ({
+  projectId,
+  pagesLength,
+  specificPage,
+  trigger,
+}) => {
   const [open, setOpen] = useState(false);
   const [name, setName] = useState("");
-  const [page, setPage] = useState(pagesLength + 1);
+  const [page, setPage] = useState(specificPage || pagesLength + 1);
   const [description, setDescription] = useState("");
 
   const onSubmit = async () => {
@@ -682,6 +753,29 @@ const EditProject = observer(({ params }) => {
     return <div>Loading...</div>;
   }
 
+  const sortedPages = pages
+    ?.slice()
+    .sort((a, b) => parseInt(a.page) - parseInt(b.page));
+  const minPage = parseInt(sortedPages[0]?.page);
+  const maxPage = parseInt(sortedPages[sortedPages.length - 1]?.page);
+
+  const completePages = [];
+  for (let pageNum = minPage; pageNum <= maxPage; pageNum++) {
+    const existingPage = sortedPages.find((p) => parseInt(p.page) === pageNum);
+
+    if (existingPage) {
+      completePages.push({
+        type: "page",
+        content: existingPage,
+      });
+    } else {
+      completePages.push({
+        type: "placeholder",
+        page: pageNum,
+      });
+    }
+  }
+
   return (
     <div className="m-4 sm:mx-8">
       {view == "project" && (
@@ -696,7 +790,7 @@ const EditProject = observer(({ params }) => {
             <ChevronLeft /> Back
           </Button>
           <Image
-            src={project.imageUrl}
+            src={project.imageUrl || imgPlaceholder}
             alt="project"
             width={100}
             height={100}
@@ -824,36 +918,53 @@ const EditProject = observer(({ params }) => {
               </Card>
             )}
 
-            {pages
-              ?.slice()
-              .sort((a, b) => parseInt(a.page) - parseInt(b.page))
-              .map((page, i) => (
-                <Card
-                  key={i}
-                  className="p-4 w-[400px] cursor-pointer flex items-center justify-between"
-                  onClick={() => {
-                    setView("page-details");
-                    setActivePage(page.page);
-                  }}
-                >
-                  <div>
-                    <div className="text-lg font-bold">
-                      <span className="text-xl">{page.page}.</span> {page.name}
+            {completePages.map((item, index) => {
+              if (item.type === "page") {
+                const page = item.content;
+                return (
+                  <Card
+                    key={index}
+                    className="p-4 w-[400px] cursor-pointer flex items-center justify-between"
+                    onClick={() => {
+                      setView("page-details");
+                      setActivePage(page.page);
+                    }}
+                  >
+                    <div>
+                      <div className="text-lg font-bold">
+                        <span className="text-xl">{page.page}.</span>{" "}
+                        {page.name}
+                      </div>
+                      <div className="text-sm">
+                        Options: {page.options?.length || 0}
+                      </div>
                     </div>
-                    <div className="text-sm">
-                      Options: {page.options?.length || 0}
-                    </div>
-                  </div>
-
-                  <Image
-                    src={page.img || imgPlaceholder}
-                    alt="page"
-                    width={50}
-                    height={50}
-                    className="ml-2"
-                  />
-                </Card>
-              ))}
+                    <Image
+                      src={page.img || imgPlaceholder}
+                      alt="page"
+                      width={50}
+                      height={50}
+                      className="ml-2"
+                    />
+                  </Card>
+                );
+              } else {
+                // For missing pages, render a button to add a new page
+                return (
+                  <Card key={index} className="p-4 w-[400px] my-2  text-center">
+                    <AddPageModal
+                      projectId={projectId}
+                      specificPage={item.page}
+                      trigger={
+                        <div className="cursor-pointer text-sm text-blue-400 flex justify-center items-center">
+                          + Add Page {item.page}
+                        </div>
+                      }
+                    />
+                  </Card>
+                );
+              }
+            })}
           </div>
           <AddPageModal projectId={projectId} pagesLength={pages.length} />
         </div>

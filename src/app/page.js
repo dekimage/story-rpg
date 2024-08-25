@@ -19,12 +19,8 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import Image from "next/image";
+import { Clock1, Layers3 } from "lucide-react";
 // import { Progress } from "@/components/ui/progress";
-
-const dummyImages = [
-  "https://cdn.midjourney.com/a70065b2-9c69-4189-a6fe-ae6ae6f449eb/0_0.png",
-  "https://cdn.midjourney.com/201b09a7-2681-4e95-8efd-6b4843d31dc3/0_3.png",
-];
 
 const CreateProject = ({ trigger, showDialog, setShowDialog }) => {
   const [projectName, setProjectName] = useState("");
@@ -127,6 +123,84 @@ const CreateProject = ({ trigger, showDialog, setShowDialog }) => {
   );
 };
 
+const dummyData = {
+  story: "This is a story",
+  tags: ["Advanture", "Escape Room"],
+  stats: {
+    time: 30,
+    pages: 60,
+  },
+};
+
+export const ProjectDetailsDialog = ({
+  project,
+  isStarted,
+  isMyProject,
+  showDialog,
+  setShowDialog,
+}) => {
+  return (
+    <Dialog open={showDialog} onOpenChange={setShowDialog}>
+      <DialogTrigger asChild>
+        <Button className="p-2 h-8 w-full">
+          {isStarted ? "Continue" : "Start"}
+        </Button>
+      </DialogTrigger>
+      <DialogContent className="overflow-hidden bg-[#25262F]">
+        <div
+          className={`absolute inset-0 bg-cover bg-center scale-125 blur`}
+          style={{ backgroundImage: `url(${project.imageUrl})` }}
+        ></div>
+        <div className="absolute inset-0 bg-gradient-to-t from-[#7970FF] to-transparent mix-blend-multiply"></div>
+        <DialogHeader></DialogHeader>
+
+        {/* <div className="relative overflow-hidden w-72 h-96 bg-[#7970FF]">
+          <div
+            className={`absolute inset-0  bg-cover bg-center scale-125 blur`}
+            style={{ backgroundImage: `url(${project.imageUrl})` }}
+          ></div>
+          <div className="absolute inset-0 bg-gradient-to-t from-[#7970FF] to-transparent mix-blend-multiply"></div>
+        </div> */}
+
+        <div className="flex relative z-10">
+          <Image
+            src={project.imageUrl || imgPlaceholder}
+            alt="project"
+            width={200}
+            height={200}
+            className="mr-8 rounded-lg max-h-[200px]"
+          />
+          <div className="flex flex-col gap-4 bg-background p-4 rounded">
+            <div className="text-3xl font-bold">{project.name}</div>
+
+            <div className="flex gap-4">
+              <div className="text-[#7970FF] flex gap-1 font-bold">
+                <Clock1 /> {dummyData.stats.time} mins
+              </div>
+              <div className="text-[#BD47F4] flex gap-1 font-bold">
+                <Layers3 /> {dummyData.stats.pages} pages
+              </div>
+            </div>
+
+            <div className="text-xs text-gray-400">
+              {dummyData.tags.map((tag, index) => (
+                <Badge key={index} className="mr-2">
+                  {tag}
+                </Badge>
+              ))}
+            </div>
+            <div className="text-[#7b7e9e] text-sm font-bold">
+              {project.description} 
+            </div>
+
+            <Button>Play</Button>
+          </div>
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+};
+
 export const ProjectCard = ({
   project,
   isStarted = false,
@@ -153,11 +227,12 @@ export const ProjectCard = ({
         <div>{project.name}</div>
         <div className="text-xs text-gray-400">{project.description}</div>
         <div className="flex gap-2 pt-6">
-          <Link href={`/project/play/${project.id}`} className="w-full">
+          {/* <Link href={`/project/play/${project.id}`} className="w-full">
             <Button className="p-2 h-8 w-full">
               {isStarted ? "Continue" : "Start"}
             </Button>
-          </Link>
+          </Link> */}
+          <ProjectDetailsDialog project={project} isStarted={isStarted} />
           {isMyProject && (
             <Link href={`/project/edit/${project.id}`}>
               <Button className="p-2 px-4 h-8" variant="outline">

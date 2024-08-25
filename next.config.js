@@ -8,6 +8,7 @@ const nextConfig = {
       "cdn.midjourney.com",
       "images.unsplash.com",
       "firebasestorage.googleapis.com",
+      "storage.googleapis.com",
     ],
   },
 };
